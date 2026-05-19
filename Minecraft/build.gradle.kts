@@ -24,8 +24,9 @@ android {
     sourceSets {
         getByName("main") {
             manifest.srcFile("Source/Main/AndroidManifests.xml")
-            java.srcDirs("Source/Main/Kotlin")
-            res.srcDirs("Source/Main/Res")
+            // AGP 9.2+ uyumlu modern tekil tanımlama
+            java.srcDir("Source/Main/Kotlin")
+            res.srcDir("Source/Main/Res")
         }
     }
 
@@ -43,7 +44,7 @@ android {
 
     tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
         compilerOptions {
-            jvmTarget.set("25") 
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_25)
             freeCompilerArgs.add("-Xjdk-release=25")
         }
     }
