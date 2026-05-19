@@ -51,8 +51,10 @@ jobs:
         chmod +x gradlew
 
     - name: Build Debug APK with Gradle
-      run: ./gradlew :Minecraft:assembleDebug --no-daemon
-
+      run: |
+        export GRADLE_OPTS="-Dhttp.agent=Mozilla/5.0 -Dhttp.keepAlive=false -Dgradle.user.home=$HOME/.gradle"
+        ./gradlew :Minecraft:assembleDebug --no-daemon
+        
     - name: Upload Finished APK Artifact
       uses: actions/upload-artifact@v4
       with:
