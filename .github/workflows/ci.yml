@@ -19,7 +19,6 @@ jobs:
       with:
         distribution: 'zulu'
         java-version: '25'
-        cache: 'gradle'
 
     - name: Set up Android SDK & NDK
       uses: android-actions/setup-android@v4
@@ -28,13 +27,35 @@ jobs:
         build-tools: 36.0.0
         ndk-version: 29.0.14206865
 
-    - name: Set up CMake
-      uses: jwlawson/actions-setup-cmake@v2
+    - name: Download and Configure Custom CMake
+      run: |
+        mkdir -p $ANDROID_HOME/cmake/4.3.2
+        curl -L https://github.com/Kitware/CMake/releases/download/v4.3.2/cmake-4.3.2-linux-x86_64.tar.gz -o cmake.tar.gz
+        tar -xzf cmake.tar.gz --strip-components=1 -C $ANDROID_HOME/cmake/4.3.2
+        echo "PATH=$ANDROID_HOME/cmake/4.3.2/bin:$PATH" >> $GITHUB_ENV
+        
+        cat <<EOF > $ANDROID_HOME/cmake/4.3.2/package.xml
+        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <repo:repository xmlns:repo="http://schemas.android.com/repository/android/generic/01" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+            <localPackage path="cmake;4.3.2" obsolete="false">
+                <type-details xsi:type="repo:genericDetailsType"/>
+                <revision><major>4</major><minor>3</minor><micro>2</micro></revision>
+                <display-name>CMake 4.3.2</display-name>
+            </localPackage>
+        </repo:repository>
+        EOF
+
+    - name: Generate Gradle Wrapper Dynamically
+      run: |
+        gradle wrapper --gradle-version 9.5 --distribution-type bin
+        chmod +x gradlew
+
+    - name: Build Debug APK with Gradle
+      run: ./gradlew :Minecraft:assembleDebug --no-daemon
+
+    - name: Upload Finished APK Artifact
+      uses: actions/upload-artifact@v4
       with:
-        cmake-version: '4.3.2'
-
-    - name: Grant Execute Permission for Gradle Wrapper
-      run: chmod +x gradlew
-
-    - name: Build with Gradle
-      run: ./gradlew assembleDebug --no-daemon
+        name: OmniCraft-Debug-APK
+        path: Minecraft/build/outputs/apk/debug/Minecraft-debug.apk
+        retention-days: 7
