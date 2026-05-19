@@ -23,6 +23,7 @@ android {
 
     sourceSets {
         getByName("main") {
+            // Backrooms yapısındaki gibi hem java hem kotlin dizinlerini set ediyoruz
             java.setSrcDirs(listOf("Source/Main/Kotlin"))
             kotlin.setSrcDirs(listOf("Source/Main/Kotlin"))
             res.setSrcDirs(listOf("Source/Main/Res"))
@@ -37,13 +38,15 @@ android {
         }
     }
 
+    // Backrooms stili tertemiz Java 25 tanımlaması
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_25
         targetCompatibility = JavaVersion.VERSION_25
     }
 
-    kotlin {
-        jvmToolchain(25)
+    // AGP 9.2+ içindeki yerleşik Kotlin Toolchain yönetimi (Bütün sorunları çözen satır)
+    kotlin { 
+        jvmToolchain(25) 
     }
 
     buildTypes {
