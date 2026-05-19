@@ -24,9 +24,9 @@ android {
     sourceSets {
         getByName("main") {
             manifest.srcFile("Source/Main/AndroidManifests.xml")
-            // AGP 9.2+ uyumlu modern tekil tanımlama
-            java.srcDir("Source/Main/Kotlin")
-            res.srcDir("Source/Main/Res")
+            // AGP 9.2+ ve Gradle 9.5 uyumlu modern koleksiyon ataması
+            java.setSrcDirs(listOf("Source/Main/Kotlin"))
+            res.setSrcDirs(listOf("Source/Main/Res"))
         }
     }
 
@@ -42,9 +42,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_21
     }
 
+    // Kotlin 2.3.21 ve Java 25 için nihai ve hatasız entegrasyon
     tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
         compilerOptions {
-            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_25)
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.fromTarget("25"))
             freeCompilerArgs.add("-Xjdk-release=25")
         }
     }
