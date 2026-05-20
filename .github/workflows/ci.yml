@@ -31,9 +31,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      # CI ÜZERİNDE OTOMATİK GRADLEW OLUŞTURMA ADIMI
       - name: Generate Gradle Wrapper
         run: |
-          echo "Generating Gradle Wrapper version ${{ env.GRADLE_VERSION }}..."
           gradle wrapper --gradle-version ${{ env.GRADLE_VERSION }}
           chmod +x gradlew
 
@@ -44,8 +44,8 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           cache: gradle
           cache-dependency-path: |
-            **/*.gradle*
-            **/gradle-wrapper.properties
+            **/*.gradle.kts
+            gradle.properties
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
@@ -112,8 +112,8 @@ jobs:
           cmake --version
           echo -e "\n=== NDK ==="
           cat "$ANDROID_NDK_HOME/source.properties"
-          echo -e "\n=== Gradle Wrapper ==="
-          grep distributionUrl gradle/wrapper/gradle-wrapper.properties || true
+          echo -e "\n=== Generated Wrapper ==="
+          ./gradlew --version || true
 
       - name: Write local.properties
         run: |
