@@ -35,7 +35,7 @@ jobs:
           distribution: temurin
           cache: gradle
 
-      # ─── CMake 4.3.2 — Kitware tarball (sdkmanager'dan değil) ─────────────
+      # ─── CMake 4.3.2 — Kitware tarball ────────────────────────────────────
       - name: Download & Install CMake 4.3.2 from Kitware
         run: |
           CMAKE_TAR="cmake-${{ env.CMAKE_VERSION }}-linux-x86_64.tar.gz"
@@ -43,61 +43,66 @@ jobs:
 
           echo "Downloading CMake ${{ env.CMAKE_VERSION }} from Kitware..."
           curl -fsSL "$CMAKE_URL" -o "$CMAKE_TAR"
-
-          echo "Verifying download..."
           ls -lh "$CMAKE_TAR"
 
-          echo "Extracting..."
+          echo "Extracting to /opt/..."
           tar -xzf "$CMAKE_TAR" -C /opt
           rm "$CMAKE_TAR"
 
           CMAKE_BIN="/opt/cmake-${{ env.CMAKE_VERSION }}-linux-x86_64/bin"
-          echo "$CMAKE_BIN" >> $GITHUB_PATH
+          echo "$CMAKE_BIN"                                        >> $GITHUB_PATH
           echo "CMAKE_HOME=/opt/cmake-${{ env.CMAKE_VERSION }}-linux-x86_64" >> $GITHUB_ENV
 
-          echo "CMake installed:"
-          /opt/cmake-${{ env.CMAKE_VERSION }}-linux-x86_64/bin/cmake --version
+          echo "CMake version:"
+          "/opt/cmake-${{ env.CMAKE_VERSION }}-linux-x86_64/bin/cmake" --version
 
-      # ─── Android NDK 29 — Google CDN (sdkmanager'dan değil) ───────────────
+      # ─── NDK 29 — Google CDN, source.properties ile doğrulama ─────────────
       - name: Download & Install NDK 29.0.14206865 from Google
         run: |
           NDK_ZIP="android-ndk-${{ env.NDK_RELEASE }}-linux.zip"
           NDK_URL="https://dl.google.com/android/repository/${NDK_ZIP}"
 
-          echo "Downloading NDK ${{ env.NDK_VERSION }} (${NDK_RELEASE}) from Google..."
+          echo "Downloading NDK ${{ env.NDK_VERSION }} from Google CDN..."
           curl -fsSL "$NDK_URL" -o "$NDK_ZIP"
-
-          echo "Verifying download..."
           ls -lh "$NDK_ZIP"
 
-          echo "Extracting to $ANDROID_HOME/ndk/..."
+          echo "Extracting..."
           mkdir -p "$ANDROID_HOME/ndk"
           unzip -q "$NDK_ZIP" -d "$ANDROID_HOME/ndk"
           rm "$NDK_ZIP"
 
-          NDK_EXTRACTED=$(ls "$ANDROID_HOME/ndk/")
-          echo "Extracted: $NDK_EXTRACTED"
+          # ls yerine find: source.properties olan tek dizini bul
+          NDK_PATH=$(find "$ANDROID_HOME/ndk" \
+            -maxdepth 2 \
+            -name "source.properties" \
+            -path "*/android-ndk-${{ env.NDK_RELEASE }}/*" \
+            -exec dirname {} \; | head -1)
 
-          NDK_PATH="$ANDROID_HOME/ndk/${NDK_EXTRACTED}"
-          echo "ANDROID_NDK=$NDK_PATH"         >> $GITHUB_ENV
-          echo "ANDROID_NDK_HOME=$NDK_PATH"    >> $GITHUB_ENV
-          echo "NDK_HOME=$NDK_PATH"            >> $GITHUB_ENV
-          echo "$NDK_PATH"                     >> $GITHUB_PATH
+          if [ -z "$NDK_PATH" ]; then
+            echo "ERROR: android-ndk-${{ env.NDK_RELEASE }} dizini bulunamadi!"
+            echo "Mevcut icerik:"
+            ls -la "$ANDROID_HOME/ndk/"
+            exit 1
+          fi
 
-          echo "NDK installed:"
+          echo "NDK path: $NDK_PATH"
+          echo "source.properties:"
           cat "$NDK_PATH/source.properties"
 
-      # ─── Android SDK Platform & Build Tools (sadece bunlar sdkmanager ile) ─
+          echo "ANDROID_NDK=$NDK_PATH"      >> $GITHUB_ENV
+          echo "ANDROID_NDK_HOME=$NDK_PATH" >> $GITHUB_ENV
+          echo "NDK_HOME=$NDK_PATH"         >> $GITHUB_ENV
+          echo "$NDK_PATH"                  >> $GITHUB_PATH
+
+      # ─── Android SDK Platform & Build Tools ────────────────────────────────
       - name: Install Android SDK Platform 36
         run: |
           sdkmanager --install \
             "platforms;android-36" \
             "build-tools;36.0.0" \
             "platform-tools"
-        env:
-          ANDROID_HOME: ${{ env.ANDROID_HOME }}
 
-      # ─── Verify all tools ──────────────────────────────────────────────────
+      # ─── Tüm araçları doğrula ──────────────────────────────────────────────
       - name: Verify Tool Versions
         run: |
           echo "=== Java ==="
@@ -107,11 +112,11 @@ jobs:
           cmake --version
 
           echo "=== NDK ==="
-          echo "Path: $ANDROID_NDK_HOME"
+          echo "Path : $ANDROID_NDK_HOME"
           cat "$ANDROID_NDK_HOME/source.properties"
 
           echo "=== Gradle Wrapper ==="
-          cat Gradle/gradle-wrapper.properties | grep distributionUrl
+          grep distributionUrl Gradle/gradle-wrapper.properties
 
       # ─── local.properties ──────────────────────────────────────────────────
       - name: Write local.properties
@@ -121,10 +126,9 @@ jobs:
           ndk.dir=$ANDROID_NDK_HOME
           cmake.dir=$CMAKE_HOME
           EOF
-          echo "local.properties written:"
           cat local.properties
 
-      # ─── Gradle izinleri ───────────────────────────────────────────────────
+      # ─── Gradle izni ───────────────────────────────────────────────────────
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
@@ -140,7 +144,7 @@ jobs:
             ${{ runner.os }}-gradle-${{ env.GRADLE_VERSION }}-
             ${{ runner.os }}-gradle-
 
-      # ─── Cache: NDK C++ Build (.cxx) ───────────────────────────────────────
+      # ─── Cache: NDK C++ Build ──────────────────────────────────────────────
       - name: Cache NDK Build Output
         uses: actions/cache@v4
         with:
