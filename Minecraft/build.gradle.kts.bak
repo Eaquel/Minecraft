@@ -1,5 +1,6 @@
 plugins {
     id("com.android.application")
+    // org.jetbrains.kotlin.android eklentisi AGP 9.0 ile tamamen kaldırıldığı için buradan silindi.
 }
 
 android {
@@ -81,13 +82,22 @@ android {
 
     sourceSets["main"].apply {
         manifest.srcFile("Source/Main/AndroidManifests.xml")
-        kotlin.srcDir("Source/Main/Kotlin")
-        res.srcDir("Source/Main/Res")
+        kotlin.srcDirs("Source/Main/Kotlin")
+        res.srcDirs("Source/Main/Res")
     }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_25
         targetCompatibility = JavaVersion.VERSION_25
+    }
+
+    kotlinOptions {
+        jvmTarget = "25"
+        freeCompilerArgs += listOf(
+            "-Xopt-in=kotlin.RequiresOptIn",
+            "-Xjvm-default=all",
+            "-opt-in=kotlin.ExperimentalStdlibApi"
+        )
     }
 
     packaging {
@@ -119,17 +129,6 @@ android {
 
     buildFeatures {
         buildConfig = true
-    }
-}
-
-// Yeni Kotlin derleyici ayarları (eski kotlinOptions yerine)
-tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
-    compilerOptions {
-        freeCompilerArgs.addAll(
-            "-Xopt-in=kotlin.RequiresOptIn",
-            "-Xjvm-default=all",
-            "-opt-in=kotlin.ExperimentalStdlibApi"
-        )
     }
 }
 
