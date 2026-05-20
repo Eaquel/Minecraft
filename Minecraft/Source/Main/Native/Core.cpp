@@ -461,7 +461,6 @@ struct WorldGen {
             int surf=0;
             for(int y=WH-1;y>=0;y--){ if(c.get(x,y,z)!=AIR){ surf=y; break; } }
             if(surf<63) continue;
-
             float rnd=(float)(rng()%1000)/1000.0f;
             if((b==FOREST&&rnd<0.05f)||(b==PLAINS&&rnd<0.01f)||(b==JUNGLE&&rnd<0.08f)||(b==TAIGA&&rnd<0.04f)){
                 placeTree(c,x,surf+1,z,b,rng);
@@ -913,7 +912,7 @@ static void getFaceUV(uint8_t tex,float& u0,float& v0,float& u1,float& v1){
     u0=tx*TX; v0=ty*TX; u1=u0+TX; v1=v0+TX;
 }
 
-static float computeAO(World& w,int x,int y,int z,int dx1,int dy1,int dz1,int dx2,int dy2,int dz2){
+[[maybe_unused]] static float computeAO(World& w,int x,int y,int z,int dx1,int dy1,int dz1,int dx2,int dy2,int dz2){
     bool s1=BLOCK_DEFS[w.getBlock(x+dx1,y+dy1,z+dz1)].solid;
     bool s2=BLOCK_DEFS[w.getBlock(x+dx2,y+dy2,z+dz2)].solid;
     bool sc=BLOCK_DEFS[w.getBlock(x+dx1+dx2,y+dy1+dy2,z+dz1+dz2)].solid;
@@ -1141,15 +1140,15 @@ static void mat4Ortho(float* m,float l,float r,float b,float t,float n,float fa)
     m[0]=2/(r-l);m[5]=2/(t-b);m[10]=-2/(fa-n);
     m[12]=-(r+l)/(r-l);m[13]=-(t+b)/(t-b);m[14]=-(fa+n)/(fa-n);m[15]=1;
 }
-static void mat4Translate(float* m,float x,float y,float z){
+[[maybe_unused]] static void mat4Translate(float* m,float x,float y,float z){
     mat4Identity(m);
     m[12]=x;m[13]=y;m[14]=z;
 }
-static void mat4RotY(float* m,float a){
+[[maybe_unused]] static void mat4RotY(float* m,float a){
     mat4Identity(m);
     m[0]=cosf(a);m[2]=sinf(a);m[8]=-sinf(a);m[10]=cosf(a);
 }
-static void mat4RotX(float* m,float a){
+[[maybe_unused]] static void mat4RotX(float* m,float a){
     mat4Identity(m);
     m[5]=cosf(a);m[6]=-sinf(a);m[9]=sinf(a);m[10]=cosf(a);
 }
