@@ -1,5 +1,6 @@
 plugins {
     id("com.android.application")
+    id("org.jetbrains.kotlin.android") version "2.3.21"
 }
 
 android {
@@ -67,22 +68,13 @@ android {
                 }
             }
         }
-        debug {
-            isMinifyEnabled = false
-            isDebuggable    = true
-            externalNativeBuild {
-                cmake {
-                    arguments += "-DCMAKE_BUILD_TYPE=Debug"
-                    cppFlags  += listOf("-O0", "-g", "-DDEBUG")
-                }
-            }
-        }
+        // Debug build type tamamen kaldırıldı - sadece release
     }
 
     sourceSets["main"].apply {
         manifest.srcFile("Source/Main/AndroidManifests.xml")
-        kotlin.srcDirs("Source/Main/Kotlin")
-        res.srcDirs("Source/Main/Res")
+        kotlin.directories += project.files("Source/Main/Kotlin")
+        res.directories    += project.files("Source/Main/Res")
     }
 
     compileOptions {
@@ -122,12 +114,11 @@ android {
     }
 }
 
-// Yeni Kotlin derleyici ayarları (eski kotlinOptions yerine)
+// Kotlin 2.3.x — sadece geçerli opt-in flagleri
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
     compilerOptions {
         freeCompilerArgs.addAll(
-            "-Xopt-in=kotlin.RequiresOptIn",
-            "-jvm-default=all",
+            "-opt-in=kotlin.RequiresOptIn",
             "-opt-in=kotlin.ExperimentalStdlibApi"
         )
     }

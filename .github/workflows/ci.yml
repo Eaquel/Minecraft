@@ -31,7 +31,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      # CI ÜZERİNDE OTOMATİK GRADLEW OLUŞTURMA ADIMI
       - name: Generate Gradle Wrapper
         run: |
           gradle wrapper --gradle-version ${{ env.GRADLE_VERSION }}
@@ -65,17 +64,17 @@ jobs:
           set -e
           CMAKE_TAR="cmake-${{ env.CMAKE_VERSION }}-linux-x86_64.tar.gz"
           CMAKE_URL="https://github.com/Kitware/CMake/releases/download/v${{ env.CMAKE_VERSION }}/${CMAKE_TAR}"
-          
+
           curl -fsSL "$CMAKE_URL" -o "$CMAKE_TAR"
           sudo tar -xzf "$CMAKE_TAR" -C /opt
           rm "$CMAKE_TAR"
-          
+
           CMAKE_HOME="/opt/cmake-${{ env.CMAKE_VERSION }}-linux-x86_64"
           CMAKE_BIN="$CMAKE_HOME/bin"
-          
+
           echo "$CMAKE_BIN" >> $GITHUB_PATH
           echo "CMAKE_HOME=$CMAKE_HOME" >> $GITHUB_ENV
-          
+
           cmake --version
 
       - name: Download & Install NDK 29
@@ -83,19 +82,20 @@ jobs:
           set -e
           NDK_ZIP="android-ndk-${{ env.NDK_RELEASE }}-linux.zip"
           NDK_URL="https://dl.google.com/android/repository/${NDK_ZIP}"
-          
+
           curl -fsSL "$NDK_URL" -o "$NDK_ZIP"
           mkdir -p "$ANDROID_SDK_ROOT/ndk"
           unzip -q "$NDK_ZIP" -d "$ANDROID_SDK_ROOT/ndk"
           rm "$NDK_ZIP"
-          
-          NDK_PATH=$(find "$ANDROID_SDK_ROOT/ndk" -maxdepth 2 -name source.properties -path "*/android-ndk-${{ env.NDK_RELEASE }}/*" -exec dirname {} \; | head -1)
-          
+
+          NDK_PATH=$(find "$ANDROID_SDK_ROOT/ndk" -maxdepth 2 -name source.properties \
+            -path "*/android-ndk-${{ env.NDK_RELEASE }}/*" -exec dirname {} \; | head -1)
+
           if [ -z "$NDK_PATH" ]; then
             echo "NDK not found!"
             exit 1
           fi
-          
+
           echo "ANDROID_NDK=$NDK_PATH" >> $GITHUB_ENV
           echo "ANDROID_NDK_HOME=$NDK_PATH" >> $GITHUB_ENV
           echo "NDK_HOME=$NDK_PATH" >> $GITHUB_ENV
@@ -112,7 +112,7 @@ jobs:
           cmake --version
           echo -e "\n=== NDK ==="
           cat "$ANDROID_NDK_HOME/source.properties"
-          echo -e "\n=== Generated Wrapper ==="
+          echo -e "\n=== Gradle Wrapper ==="
           ./gradlew --version || true
 
       - name: Write local.properties
@@ -132,23 +132,9 @@ jobs:
             ${{ runner.os }}-cxx-ndk${{ env.NDK_VERSION }}-cmake${{ env.CMAKE_VERSION }}-
             ${{ runner.os }}-cxx-ndk${{ env.NDK_VERSION }}-
 
-      - name: Build Debug APK
-        run: |
-          ./gradlew :Minecraft:assembleDebug \
-            --stacktrace \
-            --no-daemon \
-            --configuration-cache \
-            -Dorg.gradle.jvmargs="-Xmx4g -XX:+UseG1GC -XX:MaxMetaspaceSize=512m" \
-            -Pandroid.ndkVersion="${{ env.NDK_VERSION }}" \
-            -Pandroid.cmakeVersion="${{ env.CMAKE_VERSION }}"
-        env:
-          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
-          CMAKE_HOME: ${{ env.CMAKE_HOME }}
-
       - name: Build Release APK
         run: |
           ./gradlew :Minecraft:assembleRelease \
-            --stacktrace \
             --no-daemon \
             --configuration-cache \
             -Dorg.gradle.jvmargs="-Xmx4g -XX:+UseG1GC -XX:MaxMetaspaceSize=512m" \
@@ -161,13 +147,6 @@ jobs:
           SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
           SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
           SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
-
-      - name: Upload Debug APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: OmniCraft-debug-${{ github.sha }}
-          path: Minecraft/build/outputs/apk/debug/*.apk
-          retention-days: 7
 
       - name: Upload Release APK
         uses: actions/upload-artifact@v4
