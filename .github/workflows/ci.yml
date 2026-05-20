@@ -31,6 +31,12 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Generate Gradle Wrapper
+        run: |
+          echo "Generating Gradle Wrapper version ${{ env.GRADLE_VERSION }}..."
+          gradle wrapper --gradle-version ${{ env.GRADLE_VERSION }}
+          chmod +x gradlew
+
       - name: Set up JDK 25
         uses: actions/setup-java@v4
         with:
@@ -116,9 +122,6 @@ jobs:
           ndk.dir=$ANDROID_NDK_HOME
           cmake.dir=$CMAKE_HOME
           EOF
-
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
 
       - name: Cache NDK Build Output
         uses: actions/cache@v4
