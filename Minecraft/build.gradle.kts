@@ -72,8 +72,8 @@ android {
 
     sourceSets["main"].apply {
         manifest.srcFile("Source/Main/AndroidManifests.xml")
-        kotlin.directories += project.files("Source/Main/Kotlin")
-        res.directories    += project.files("Source/Main/Res")
+        kotlin.srcDirs("Source/Main/Kotlin")
+        res.srcDirs("Source/Main/Res")
     }
 
     compileOptions {

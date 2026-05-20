@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">OmniCraft</string>
+    <string name="app_name">Omni Craft</string>
     <string name="loading">Loading world…</string>
     <string name="chat_hint">Message or /command</string>
     <string name="btn_jump">Jump</string>
