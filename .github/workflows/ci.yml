@@ -33,7 +33,10 @@ jobs:
 
       - name: Generate Gradle Wrapper
         run: |
-          gradle wrapper --gradle-version ${{ env.GRADLE_VERSION }} --distribution-type bin --project-dir Minecraft
+          gradle wrapper --gradle-version ${{ env.GRADLE_VERSION }} --distribution-type bin
+          cp gradlew Minecraft/gradlew
+          cp gradlew.bat Minecraft/gradlew.bat
+          cp -r gradle Minecraft/gradle
           chmod +x Minecraft/gradlew
 
       - name: Set up JDK 25
