@@ -1,5 +1,3 @@
-Aşağıdaki workflow düzeltilmiş, modern GitHub runner’larıyla uyumlu ve sdkmanager hatasını çözülmüş tam sürümdür.
-
 name: OmniCraft Android CI
 
 on:
@@ -7,7 +5,6 @@ on:
     branches:
       - main
       - develop
-
   pull_request:
     branches:
       - main
@@ -20,7 +17,6 @@ env:
   JAVA_VERSION: "25"
   KOTLIN_VERSION: "2.3.21"
   COMPILE_SDK: "36"
-
   ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
   ANDROID_HOME: /usr/local/lib/android/sdk
 
@@ -30,41 +26,27 @@ jobs:
     timeout-minutes: 90
 
     steps:
-
-      # ─────────────────────────────────────────────────────────────
-      # Checkout
-      # ─────────────────────────────────────────────────────────────
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # ─────────────────────────────────────────────────────────────
-      # Java 25
-      # ─────────────────────────────────────────────────────────────
       - name: Set up JDK 25
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: ${{ env.JAVA_VERSION }}
           cache: gradle
+          cache-dependency-path: |
+            **/*.gradle*
+            **/gradle-wrapper.properties
 
-      # ─────────────────────────────────────────────────────────────
-      # Android SDK Command-line Tools
-      # sdkmanager PATH fix
-      # ─────────────────────────────────────────────────────────────
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
 
-      # ─────────────────────────────────────────────────────────────
-      # Accept Android Licenses
-      # ─────────────────────────────────────────────────────────────
       - name: Accept Android SDK licenses
         run: yes | sdkmanager --licenses
 
-      # ─────────────────────────────────────────────────────────────
-      # Install SDK Platform + Build Tools
-      # ─────────────────────────────────────────────────────────────
       - name: Install Android SDK Platform 36
         run: |
           sdkmanager --install \
@@ -72,105 +54,61 @@ jobs:
             "platforms;android-36" \
             "build-tools;36.0.0"
 
-      # ─────────────────────────────────────────────────────────────
-      # Install CMake 4.3.2
-      # ─────────────────────────────────────────────────────────────
       - name: Download & Install CMake 4.3.2
         run: |
           set -e
-
           CMAKE_TAR="cmake-${{ env.CMAKE_VERSION }}-linux-x86_64.tar.gz"
           CMAKE_URL="https://github.com/Kitware/CMake/releases/download/v${{ env.CMAKE_VERSION }}/${CMAKE_TAR}"
-
-          echo "Downloading CMake..."
+          
           curl -fsSL "$CMAKE_URL" -o "$CMAKE_TAR"
-
-          echo "Extracting..."
           sudo tar -xzf "$CMAKE_TAR" -C /opt
           rm "$CMAKE_TAR"
-
+          
           CMAKE_HOME="/opt/cmake-${{ env.CMAKE_VERSION }}-linux-x86_64"
           CMAKE_BIN="$CMAKE_HOME/bin"
-
+          
           echo "$CMAKE_BIN" >> $GITHUB_PATH
           echo "CMAKE_HOME=$CMAKE_HOME" >> $GITHUB_ENV
-
+          
           cmake --version
 
-      # ─────────────────────────────────────────────────────────────
-      # Install NDK r29
-      # ─────────────────────────────────────────────────────────────
       - name: Download & Install NDK 29
         run: |
           set -e
-
           NDK_ZIP="android-ndk-${{ env.NDK_RELEASE }}-linux.zip"
           NDK_URL="https://dl.google.com/android/repository/${NDK_ZIP}"
-
-          echo "Downloading NDK..."
+          
           curl -fsSL "$NDK_URL" -o "$NDK_ZIP"
-
           mkdir -p "$ANDROID_SDK_ROOT/ndk"
-
           unzip -q "$NDK_ZIP" -d "$ANDROID_SDK_ROOT/ndk"
-
           rm "$NDK_ZIP"
-
-          NDK_PATH=$(find "$ANDROID_SDK_ROOT/ndk" \
-            -maxdepth 2 \
-            -name source.properties \
-            -path "*/android-ndk-${{ env.NDK_RELEASE }}/*" \
-            -exec dirname {} \; | head -1)
-
+          
+          NDK_PATH=$(find "$ANDROID_SDK_ROOT/ndk" -maxdepth 2 -name source.properties -path "*/android-ndk-${{ env.NDK_RELEASE }}/*" -exec dirname {} \; | head -1)
+          
           if [ -z "$NDK_PATH" ]; then
             echo "NDK not found!"
-            ls -la "$ANDROID_SDK_ROOT/ndk"
             exit 1
           fi
-
-          echo "NDK path: $NDK_PATH"
-
-          cat "$NDK_PATH/source.properties"
-
+          
           echo "ANDROID_NDK=$NDK_PATH" >> $GITHUB_ENV
           echo "ANDROID_NDK_HOME=$NDK_PATH" >> $GITHUB_ENV
           echo "NDK_HOME=$NDK_PATH" >> $GITHUB_ENV
-
           echo "$NDK_PATH" >> $GITHUB_PATH
 
-      # ─────────────────────────────────────────────────────────────
-      # Verify Tools
-      # ─────────────────────────────────────────────────────────────
       - name: Verify Tool Versions
         run: |
           echo "=== Java ==="
           java --version
-
-          echo ""
-
-          echo "=== SDKManager ==="
+          echo -e "\n=== SDKManager ==="
           which sdkmanager
           sdkmanager --version
-
-          echo ""
-
-          echo "=== CMake ==="
+          echo -e "\n=== CMake ==="
           cmake --version
-
-          echo ""
-
-          echo "=== NDK ==="
-          echo "$ANDROID_NDK_HOME"
+          echo -e "\n=== NDK ==="
           cat "$ANDROID_NDK_HOME/source.properties"
-
-          echo ""
-
-          echo "=== Gradle Wrapper ==="
+          echo -e "\n=== Gradle Wrapper ==="
           grep distributionUrl gradle/wrapper/gradle-wrapper.properties || true
 
-      # ─────────────────────────────────────────────────────────────
-      # local.properties
-      # ─────────────────────────────────────────────────────────────
       - name: Write local.properties
         run: |
           cat > local.properties << EOF
@@ -179,48 +117,18 @@ jobs:
           cmake.dir=$CMAKE_HOME
           EOF
 
-          cat local.properties
-
-      # ─────────────────────────────────────────────────────────────
-      # Gradle Permission
-      # ─────────────────────────────────────────────────────────────
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # ─────────────────────────────────────────────────────────────
-      # Cache Gradle
-      # ─────────────────────────────────────────────────────────────
-      - name: Cache Gradle
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: >
-            ${{ runner.os }}-gradle-${{ env.GRADLE_VERSION }}-${{
-            hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-${{ env.GRADLE_VERSION }}-
-            ${{ runner.os }}-gradle-
-
-      # ─────────────────────────────────────────────────────────────
-      # Cache Native Build
-      # ─────────────────────────────────────────────────────────────
       - name: Cache NDK Build Output
         uses: actions/cache@v4
         with:
           path: Minecraft/.cxx
-          key: >
-            ${{ runner.os }}-cxx-ndk${{ env.NDK_VERSION }}-cmake${{
-            env.CMAKE_VERSION }}-${{
-            hashFiles('**/CMakeLists.txt', '**/*.cpp', '**/*.c') }}
+          key: ${{ runner.os }}-cxx-ndk${{ env.NDK_VERSION }}-cmake${{ env.CMAKE_VERSION }}-${{ hashFiles('**/CMakeLists.txt', '**/*.cpp', '**/*.c', '**/*.h') }}
           restore-keys: |
             ${{ runner.os }}-cxx-ndk${{ env.NDK_VERSION }}-cmake${{ env.CMAKE_VERSION }}-
             ${{ runner.os }}-cxx-ndk${{ env.NDK_VERSION }}-
 
-      # ─────────────────────────────────────────────────────────────
-      # Build Debug
-      # ─────────────────────────────────────────────────────────────
       - name: Build Debug APK
         run: |
           ./gradlew :Minecraft:assembleDebug \
@@ -234,9 +142,6 @@ jobs:
           ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
           CMAKE_HOME: ${{ env.CMAKE_HOME }}
 
-      # ─────────────────────────────────────────────────────────────
-      # Build Release
-      # ─────────────────────────────────────────────────────────────
       - name: Build Release APK
         run: |
           ./gradlew :Minecraft:assembleRelease \
@@ -249,13 +154,11 @@ jobs:
         env:
           ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
           CMAKE_HOME: ${{ env.CMAKE_HOME }}
+          SIGNING_KEY_STORE: ${{ secrets.SIGNING_KEY_STORE }}
           SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
           SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
           SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
 
-      # ─────────────────────────────────────────────────────────────
-      # Upload Debug APK
-      # ─────────────────────────────────────────────────────────────
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
@@ -263,9 +166,6 @@ jobs:
           path: Minecraft/build/outputs/apk/debug/*.apk
           retention-days: 7
 
-      # ─────────────────────────────────────────────────────────────
-      # Upload Release APK
-      # ─────────────────────────────────────────────────────────────
       - name: Upload Release APK
         uses: actions/upload-artifact@v4
         with:
@@ -273,16 +173,10 @@ jobs:
           path: Minecraft/build/outputs/apk/release/*.apk
           retention-days: 30
 
-      # ─────────────────────────────────────────────────────────────
-      # Lint
-      # ─────────────────────────────────────────────────────────────
       - name: Lint
         run: ./gradlew :Minecraft:lint --no-daemon
         continue-on-error: true
 
-      # ─────────────────────────────────────────────────────────────
-      # Upload Lint Report
-      # ─────────────────────────────────────────────────────────────
       - name: Upload Lint Report
         if: always()
         uses: actions/upload-artifact@v4
