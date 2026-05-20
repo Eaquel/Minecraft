@@ -95,8 +95,6 @@ class Activity : Activity() {
 
         buildUI()
         setContentView(root)
-
-        glView.onTouchListener = { event -> handleTouch(event) }
     }
 
     private fun dp(v: Float) = (v * resources.displayMetrics.density).toInt()

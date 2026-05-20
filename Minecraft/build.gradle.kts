@@ -81,8 +81,8 @@ android {
 
     sourceSets["main"].apply {
         manifest.srcFile("Source/Main/AndroidManifests.xml")
-        kotlin.srcDir("Source/Main/Kotlin")
-        res.srcDir("Source/Main/Res")
+        kotlin.srcDirs("Source/Main/Kotlin")
+        res.srcDirs("Source/Main/Res")
     }
 
     compileOptions {
@@ -127,7 +127,7 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach 
     compilerOptions {
         freeCompilerArgs.addAll(
             "-Xopt-in=kotlin.RequiresOptIn",
-            "-Xjvm-default=all",
+            "-jvm-default=all",
             "-opt-in=kotlin.ExperimentalStdlibApi"
         )
     }
