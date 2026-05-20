@@ -67,7 +67,6 @@ android {
                 }
             }
         }
-        // Debug build type tamamen kaldırıldı - sadece release
     }
 
     sourceSets["main"].apply {
@@ -113,7 +112,6 @@ android {
     }
 }
 
-// Kotlin 2.3.x — sadece geçerli opt-in flagleri
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
     compilerOptions {
         freeCompilerArgs.addAll(

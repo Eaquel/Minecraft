@@ -67,17 +67,13 @@ jobs:
           set -e
           CMAKE_TAR="cmake-${{ env.CMAKE_VERSION }}-linux-x86_64.tar.gz"
           CMAKE_URL="https://github.com/Kitware/CMake/releases/download/v${{ env.CMAKE_VERSION }}/${CMAKE_TAR}"
-
           curl -fsSL "$CMAKE_URL" -o "$CMAKE_TAR"
           sudo tar -xzf "$CMAKE_TAR" -C /opt
           rm "$CMAKE_TAR"
-
           CMAKE_HOME="/opt/cmake-${{ env.CMAKE_VERSION }}-linux-x86_64"
           CMAKE_BIN="$CMAKE_HOME/bin"
-
           echo "$CMAKE_BIN" >> $GITHUB_PATH
           echo "CMAKE_HOME=$CMAKE_HOME" >> $GITHUB_ENV
-
           cmake --version
 
       - name: Download & Install NDK 29
@@ -85,20 +81,16 @@ jobs:
           set -e
           NDK_ZIP="android-ndk-${{ env.NDK_RELEASE }}-linux.zip"
           NDK_URL="https://dl.google.com/android/repository/${NDK_ZIP}"
-
           curl -fsSL "$NDK_URL" -o "$NDK_ZIP"
           mkdir -p "$ANDROID_SDK_ROOT/ndk"
           unzip -q "$NDK_ZIP" -d "$ANDROID_SDK_ROOT/ndk"
           rm "$NDK_ZIP"
-
           NDK_PATH=$(find "$ANDROID_SDK_ROOT/ndk" -maxdepth 2 -name source.properties \
             -path "*/android-ndk-${{ env.NDK_RELEASE }}/*" -exec dirname {} \; | head -1)
-
           if [ -z "$NDK_PATH" ]; then
             echo "NDK not found!"
             exit 1
           fi
-
           echo "ANDROID_NDK=$NDK_PATH" >> $GITHUB_ENV
           echo "ANDROID_NDK_HOME=$NDK_PATH" >> $GITHUB_ENV
           echo "NDK_HOME=$NDK_PATH" >> $GITHUB_ENV
@@ -122,7 +114,6 @@ jobs:
         run: |
           cat > local.properties << EOF
           sdk.dir=$ANDROID_SDK_ROOT
-          ndk.dir=$ANDROID_NDK_HOME
           cmake.dir=$CMAKE_HOME
           EOF
 

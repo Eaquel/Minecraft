@@ -6,10 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    set(CMAKE_CXX_FLAGS_RELEASE
-        "-O3 -DNDEBUG -ffast-math -funroll-loops -fomit-frame-pointer \
-         -fvectorize -fslp-vectorize -fno-exceptions-unwind-tables \
-         -fvisibility=hidden -fvisibility-inlines-hidden")
+    set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG -ffast-math -funroll-loops -fomit-frame-pointer -fvectorize -fslp-vectorize -fvisibility=hidden -fvisibility-inlines-hidden")
     set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
 else()
     set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g -DDEBUG -fno-omit-frame-pointer")
