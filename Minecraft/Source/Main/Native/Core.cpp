@@ -281,7 +281,7 @@ static void initRecipes(){
         r.pattern[6]=r6;r.pattern[7]=r7;r.pattern[8]=r8;
         r.resultId=rid; r.resultCount=rc; return r;
     };
-    auto shapeless=[](std::initializer_list<uint16_t> ins,uint16_t rid,uint8_t rc) -> CraftRecipe {
+    [[maybe_unused]] auto shapeless=[](std::initializer_list<uint16_t> ins,uint16_t rid,uint8_t rc) -> CraftRecipe {
         CraftRecipe r; r.shaped=false; r.width=0; r.height=0; r.resultId=rid; r.resultCount=rc;
         int i=0; for(auto id:ins){ if(i<9) r.pattern[i++]=id; }
         return r;
@@ -461,7 +461,7 @@ struct WorldGen {
             int surf=0;
             for(int y=WH-1;y>=0;y--){ if(c.get(x,y,z)!=AIR){ surf=y; break; } }
             if(surf<63) continue;
-            float tr=treeNoise.noise(baseX+x,0,baseZ+z);
+
             float rnd=(float)(rng()%1000)/1000.0f;
             if((b==FOREST&&rnd<0.05f)||(b==PLAINS&&rnd<0.01f)||(b==JUNGLE&&rnd<0.08f)||(b==TAIGA&&rnd<0.04f)){
                 placeTree(c,x,surf+1,z,b,rng);
