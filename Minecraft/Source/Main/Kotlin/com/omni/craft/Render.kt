@@ -1,17 +1,21 @@
 package com.omni.craft
 
+import android.content.Context
 import android.opengl.GLSurfaceView
-import javax.microedition.khronos.egl.EGLConfig
-import javax.microedition.khronos.opengles.GL10
+import android.view.MotionEvent
 
-class Render(private val engine: Engine) : GLSurfaceView.Renderer {
-    override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
-        engine.initializeEngine()
+class Render(context: Context, val engine: Engine) : GLSurfaceView(context) {
+
+    init {
+        setEGLContextClientVersion(3)
+        setEGLConfigChooser(8, 8, 8, 8, 24, 0)
+        setRenderer(engine)
+        renderMode = RENDERMODE_CONTINUOUSLY
     }
-    override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
-        engine.resizeViewport(width, height)
-    }
-    override fun onDrawFrame(gl: GL10?) {
-        engine.stepFrame()
+
+    var onTouchListener: ((MotionEvent) -> Boolean)? = null
+
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        return onTouchListener?.invoke(event) ?: super.onTouchEvent(event)
     }
 }

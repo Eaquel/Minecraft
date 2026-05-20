@@ -1,4 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">OmniCraft</string>
+    <string name="loading">Loading world…</string>
+    <string name="chat_hint">Message or /command</string>
+    <string name="btn_jump">Jump</string>
+    <string name="btn_break">Break</string>
+    <string name="btn_place">Place</string>
+    <string name="btn_sneak">Sneak</string>
+    <string name="btn_sprint">Sprint</string>
+    <string name="btn_inventory">Bag</string>
+    <string name="btn_chat">Chat</string>
+    <string name="btn_settings">Settings</string>
+    <string name="sensitivity_label">Camera Sensitivity</string>
+    <string name="gamemode_survival">Survival</string>
+    <string name="gamemode_creative">Creative</string>
+    <string name="gamemode_adventure">Adventure</string>
+    <string name="gamemode_spectator">Spectator</string>
 </resources>
