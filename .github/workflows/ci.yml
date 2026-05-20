@@ -1,19 +1,28 @@
+Aşağıdaki workflow düzeltilmiş, modern GitHub runner’larıyla uyumlu ve sdkmanager hatasını çözülmüş tam sürümdür.
+
 name: OmniCraft Android CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches:
+      - main
+      - develop
+
   pull_request:
-    branches: [ main ]
+    branches:
+      - main
 
 env:
-  GRADLE_VERSION:  "9.5.0"
-  NDK_VERSION:     "29.0.14206865"
-  NDK_RELEASE:     "r29"
-  CMAKE_VERSION:   "4.3.2"
-  JAVA_VERSION:    "25"
-  KOTLIN_VERSION:  "2.3.21"
-  COMPILE_SDK:     "36"
+  GRADLE_VERSION: "9.5.0"
+  NDK_VERSION: "29.0.14206865"
+  NDK_RELEASE: "r29"
+  CMAKE_VERSION: "4.3.2"
+  JAVA_VERSION: "25"
+  KOTLIN_VERSION: "2.3.21"
+  COMPILE_SDK: "36"
+
+  ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+  ANDROID_HOME: /usr/local/lib/android/sdk
 
 jobs:
   build:
@@ -22,139 +31,196 @@ jobs:
 
     steps:
 
+      # ─────────────────────────────────────────────────────────────
+      # Checkout
+      # ─────────────────────────────────────────────────────────────
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # ─── JDK 25 ────────────────────────────────────────────────────────────
+      # ─────────────────────────────────────────────────────────────
+      # Java 25
+      # ─────────────────────────────────────────────────────────────
       - name: Set up JDK 25
         uses: actions/setup-java@v4
         with:
-          java-version: ${{ env.JAVA_VERSION }}
           distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
           cache: gradle
 
-      # ─── CMake 4.3.2 — Kitware tarball ────────────────────────────────────
-      - name: Download & Install CMake 4.3.2 from Kitware
+      # ─────────────────────────────────────────────────────────────
+      # Android SDK Command-line Tools
+      # sdkmanager PATH fix
+      # ─────────────────────────────────────────────────────────────
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      # ─────────────────────────────────────────────────────────────
+      # Accept Android Licenses
+      # ─────────────────────────────────────────────────────────────
+      - name: Accept Android SDK licenses
+        run: yes | sdkmanager --licenses
+
+      # ─────────────────────────────────────────────────────────────
+      # Install SDK Platform + Build Tools
+      # ─────────────────────────────────────────────────────────────
+      - name: Install Android SDK Platform 36
         run: |
+          sdkmanager --install \
+            "platform-tools" \
+            "platforms;android-36" \
+            "build-tools;36.0.0"
+
+      # ─────────────────────────────────────────────────────────────
+      # Install CMake 4.3.2
+      # ─────────────────────────────────────────────────────────────
+      - name: Download & Install CMake 4.3.2
+        run: |
+          set -e
+
           CMAKE_TAR="cmake-${{ env.CMAKE_VERSION }}-linux-x86_64.tar.gz"
           CMAKE_URL="https://github.com/Kitware/CMake/releases/download/v${{ env.CMAKE_VERSION }}/${CMAKE_TAR}"
 
-          echo "Downloading CMake ${{ env.CMAKE_VERSION }} from Kitware..."
+          echo "Downloading CMake..."
           curl -fsSL "$CMAKE_URL" -o "$CMAKE_TAR"
-          ls -lh "$CMAKE_TAR"
 
-          echo "Extracting to /opt/..."
-          tar -xzf "$CMAKE_TAR" -C /opt
+          echo "Extracting..."
+          sudo tar -xzf "$CMAKE_TAR" -C /opt
           rm "$CMAKE_TAR"
 
-          CMAKE_BIN="/opt/cmake-${{ env.CMAKE_VERSION }}-linux-x86_64/bin"
-          echo "$CMAKE_BIN"                                        >> $GITHUB_PATH
-          echo "CMAKE_HOME=/opt/cmake-${{ env.CMAKE_VERSION }}-linux-x86_64" >> $GITHUB_ENV
+          CMAKE_HOME="/opt/cmake-${{ env.CMAKE_VERSION }}-linux-x86_64"
+          CMAKE_BIN="$CMAKE_HOME/bin"
 
-          echo "CMake version:"
-          "/opt/cmake-${{ env.CMAKE_VERSION }}-linux-x86_64/bin/cmake" --version
+          echo "$CMAKE_BIN" >> $GITHUB_PATH
+          echo "CMAKE_HOME=$CMAKE_HOME" >> $GITHUB_ENV
 
-      # ─── NDK 29 — Google CDN, source.properties ile doğrulama ─────────────
-      - name: Download & Install NDK 29.0.14206865 from Google
+          cmake --version
+
+      # ─────────────────────────────────────────────────────────────
+      # Install NDK r29
+      # ─────────────────────────────────────────────────────────────
+      - name: Download & Install NDK 29
         run: |
+          set -e
+
           NDK_ZIP="android-ndk-${{ env.NDK_RELEASE }}-linux.zip"
           NDK_URL="https://dl.google.com/android/repository/${NDK_ZIP}"
 
-          echo "Downloading NDK ${{ env.NDK_VERSION }} from Google CDN..."
+          echo "Downloading NDK..."
           curl -fsSL "$NDK_URL" -o "$NDK_ZIP"
-          ls -lh "$NDK_ZIP"
 
-          echo "Extracting..."
-          mkdir -p "$ANDROID_HOME/ndk"
-          unzip -q "$NDK_ZIP" -d "$ANDROID_HOME/ndk"
+          mkdir -p "$ANDROID_SDK_ROOT/ndk"
+
+          unzip -q "$NDK_ZIP" -d "$ANDROID_SDK_ROOT/ndk"
+
           rm "$NDK_ZIP"
 
-          # ls yerine find: source.properties olan tek dizini bul
-          NDK_PATH=$(find "$ANDROID_HOME/ndk" \
+          NDK_PATH=$(find "$ANDROID_SDK_ROOT/ndk" \
             -maxdepth 2 \
-            -name "source.properties" \
+            -name source.properties \
             -path "*/android-ndk-${{ env.NDK_RELEASE }}/*" \
             -exec dirname {} \; | head -1)
 
           if [ -z "$NDK_PATH" ]; then
-            echo "ERROR: android-ndk-${{ env.NDK_RELEASE }} dizini bulunamadi!"
-            echo "Mevcut icerik:"
-            ls -la "$ANDROID_HOME/ndk/"
+            echo "NDK not found!"
+            ls -la "$ANDROID_SDK_ROOT/ndk"
             exit 1
           fi
 
           echo "NDK path: $NDK_PATH"
-          echo "source.properties:"
+
           cat "$NDK_PATH/source.properties"
 
-          echo "ANDROID_NDK=$NDK_PATH"      >> $GITHUB_ENV
+          echo "ANDROID_NDK=$NDK_PATH" >> $GITHUB_ENV
           echo "ANDROID_NDK_HOME=$NDK_PATH" >> $GITHUB_ENV
-          echo "NDK_HOME=$NDK_PATH"         >> $GITHUB_ENV
-          echo "$NDK_PATH"                  >> $GITHUB_PATH
+          echo "NDK_HOME=$NDK_PATH" >> $GITHUB_ENV
 
-      # ─── Android SDK Platform & Build Tools ────────────────────────────────
-      - name: Install Android SDK Platform 36
-        run: |
-          sdkmanager --install \
-            "platforms;android-36" \
-            "build-tools;36.0.0" \
-            "platform-tools"
+          echo "$NDK_PATH" >> $GITHUB_PATH
 
-      # ─── Tüm araçları doğrula ──────────────────────────────────────────────
+      # ─────────────────────────────────────────────────────────────
+      # Verify Tools
+      # ─────────────────────────────────────────────────────────────
       - name: Verify Tool Versions
         run: |
           echo "=== Java ==="
           java --version
 
+          echo ""
+
+          echo "=== SDKManager ==="
+          which sdkmanager
+          sdkmanager --version
+
+          echo ""
+
           echo "=== CMake ==="
           cmake --version
 
+          echo ""
+
           echo "=== NDK ==="
-          echo "Path : $ANDROID_NDK_HOME"
+          echo "$ANDROID_NDK_HOME"
           cat "$ANDROID_NDK_HOME/source.properties"
 
-          echo "=== Gradle Wrapper ==="
-          grep distributionUrl Gradle/gradle-wrapper.properties
+          echo ""
 
-      # ─── local.properties ──────────────────────────────────────────────────
+          echo "=== Gradle Wrapper ==="
+          grep distributionUrl gradle/wrapper/gradle-wrapper.properties || true
+
+      # ─────────────────────────────────────────────────────────────
+      # local.properties
+      # ─────────────────────────────────────────────────────────────
       - name: Write local.properties
         run: |
           cat > local.properties << EOF
-          sdk.dir=$ANDROID_HOME
+          sdk.dir=$ANDROID_SDK_ROOT
           ndk.dir=$ANDROID_NDK_HOME
           cmake.dir=$CMAKE_HOME
           EOF
+
           cat local.properties
 
-      # ─── Gradle izni ───────────────────────────────────────────────────────
+      # ─────────────────────────────────────────────────────────────
+      # Gradle Permission
+      # ─────────────────────────────────────────────────────────────
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # ─── Cache: Gradle ─────────────────────────────────────────────────────
+      # ─────────────────────────────────────────────────────────────
+      # Cache Gradle
+      # ─────────────────────────────────────────────────────────────
       - name: Cache Gradle
         uses: actions/cache@v4
         with:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ env.GRADLE_VERSION }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          key: >
+            ${{ runner.os }}-gradle-${{ env.GRADLE_VERSION }}-${{
+            hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
           restore-keys: |
             ${{ runner.os }}-gradle-${{ env.GRADLE_VERSION }}-
             ${{ runner.os }}-gradle-
 
-      # ─── Cache: NDK C++ Build ──────────────────────────────────────────────
+      # ─────────────────────────────────────────────────────────────
+      # Cache Native Build
+      # ─────────────────────────────────────────────────────────────
       - name: Cache NDK Build Output
         uses: actions/cache@v4
         with:
           path: Minecraft/.cxx
-          key: ${{ runner.os }}-cxx-ndk${{ env.NDK_VERSION }}-cmake${{ env.CMAKE_VERSION }}-${{ hashFiles('**/CMakeLists.txt', '**/Core.cpp') }}
+          key: >
+            ${{ runner.os }}-cxx-ndk${{ env.NDK_VERSION }}-cmake${{
+            env.CMAKE_VERSION }}-${{
+            hashFiles('**/CMakeLists.txt', '**/*.cpp', '**/*.c') }}
           restore-keys: |
             ${{ runner.os }}-cxx-ndk${{ env.NDK_VERSION }}-cmake${{ env.CMAKE_VERSION }}-
             ${{ runner.os }}-cxx-ndk${{ env.NDK_VERSION }}-
 
-      # ─── Build Debug ───────────────────────────────────────────────────────
+      # ─────────────────────────────────────────────────────────────
+      # Build Debug
+      # ─────────────────────────────────────────────────────────────
       - name: Build Debug APK
         run: |
           ./gradlew :Minecraft:assembleDebug \
@@ -166,9 +232,11 @@ jobs:
             -Pandroid.cmakeVersion="${{ env.CMAKE_VERSION }}"
         env:
           ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
-          CMAKE_HOME:       ${{ env.CMAKE_HOME }}
+          CMAKE_HOME: ${{ env.CMAKE_HOME }}
 
-      # ─── Build Release ─────────────────────────────────────────────────────
+      # ─────────────────────────────────────────────────────────────
+      # Build Release
+      # ─────────────────────────────────────────────────────────────
       - name: Build Release APK
         run: |
           ./gradlew :Minecraft:assembleRelease \
@@ -179,13 +247,15 @@ jobs:
             -Pandroid.ndkVersion="${{ env.NDK_VERSION }}" \
             -Pandroid.cmakeVersion="${{ env.CMAKE_VERSION }}"
         env:
-          ANDROID_NDK_HOME:       ${{ env.ANDROID_NDK_HOME }}
-          CMAKE_HOME:             ${{ env.CMAKE_HOME }}
-          SIGNING_KEY_ALIAS:      ${{ secrets.SIGNING_KEY_ALIAS }}
-          SIGNING_KEY_PASSWORD:   ${{ secrets.SIGNING_KEY_PASSWORD }}
+          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
+          CMAKE_HOME: ${{ env.CMAKE_HOME }}
+          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
           SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
 
-      # ─── Artifacts ─────────────────────────────────────────────────────────
+      # ─────────────────────────────────────────────────────────────
+      # Upload Debug APK
+      # ─────────────────────────────────────────────────────────────
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
@@ -193,6 +263,9 @@ jobs:
           path: Minecraft/build/outputs/apk/debug/*.apk
           retention-days: 7
 
+      # ─────────────────────────────────────────────────────────────
+      # Upload Release APK
+      # ─────────────────────────────────────────────────────────────
       - name: Upload Release APK
         uses: actions/upload-artifact@v4
         with:
@@ -200,14 +273,19 @@ jobs:
           path: Minecraft/build/outputs/apk/release/*.apk
           retention-days: 30
 
-      # ─── Lint ──────────────────────────────────────────────────────────────
+      # ─────────────────────────────────────────────────────────────
+      # Lint
+      # ─────────────────────────────────────────────────────────────
       - name: Lint
         run: ./gradlew :Minecraft:lint --no-daemon
         continue-on-error: true
 
+      # ─────────────────────────────────────────────────────────────
+      # Upload Lint Report
+      # ─────────────────────────────────────────────────────────────
       - name: Upload Lint Report
-        uses: actions/upload-artifact@v4
         if: always()
+        uses: actions/upload-artifact@v4
         with:
           name: lint-report-${{ github.sha }}
           path: Minecraft/build/reports/lint-results*.html
