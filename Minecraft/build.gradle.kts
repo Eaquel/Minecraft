@@ -1,6 +1,6 @@
 plugins {
     id("com.android.application")
-    id("org.jetbrains.kotlin.android")
+    // org.jetbrains.kotlin.android eklentisi AGP 9.0 ile tamamen kaldırıldığı için buradan silindi.
 }
 
 android {
