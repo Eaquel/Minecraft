@@ -1,19 +1,62 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- App -->
     <string name="app_name">Omni Craft</string>
-    <string name="loading">Loading world…</string>
-    <string name="chat_hint">Message or /command</string>
-    <string name="btn_jump">Jump</string>
-    <string name="btn_break">Break</string>
-    <string name="btn_place">Place</string>
-    <string name="btn_sneak">Sneak</string>
-    <string name="btn_sprint">Sprint</string>
-    <string name="btn_inventory">Bag</string>
-    <string name="btn_chat">Chat</string>
-    <string name="btn_settings">Settings</string>
+
+    <!-- Main Menu -->
+    <string name="menu_tagline">Infinite worlds. Endless possibilities.</string>
+    <string name="menu_play">▶  Play</string>
+    <string name="menu_worlds">🌍  Worlds</string>
+    <string name="menu_quit">✕  Quit</string>
+    <string name="menu_back">← Back</string>
+    <string name="menu_version">v%1$s</string>
+
+    <!-- World system -->
+    <string name="world_default_name">New World</string>
+    <string name="world_new">+ New World</string>
+    <string name="world_create">Create</string>
+    <string name="world_load">Load</string>
+    <string name="world_no_worlds">No worlds yet.\nTap \"+ New World\" to get started.</string>
+    <string name="world_name_hint">World name…</string>
+    <string name="world_seed_hint">Seed (leave blank for random)</string>
+    <string name="world_seed_label">Seed: %1$d</string>
+    <string name="world_loaded">Loaded: %1$s</string>
+
+    <!-- HUD buttons -->
+    <string name="btn_jump">⬆</string>
+    <string name="btn_break">⛏</string>
+    <string name="btn_place">🏗</string>
+    <string name="btn_sneak">⬇</string>
+    <string name="btn_sprint">🏃</string>
+    <string name="btn_fly_up">↑↑</string>
+    <string name="btn_fly_down">↓↓</string>
+    <string name="btn_inventory">🎒</string>
+    <string name="btn_chat">💬</string>
+    <string name="btn_settings">⚙</string>
+
+    <!-- Chat -->
+    <string name="chat_hint">Message or /command…</string>
+    <string name="chat_send">➤</string>
+
+    <!-- Inventory -->
+    <string name="inventory_title">🎒 Inventory</string>
+    <string name="crafting_title">⚒ Crafting (3×3 → result)</string>
+    <string name="crafting_id_hint">ID</string>
+    <string name="crafting_button">Craft</string>
+    <string name="close_button">✕ Close</string>
+
+    <!-- Settings -->
+    <string name="settings_title">⚙ Settings</string>
+    <string name="settings_gamemode">Game Mode</string>
+    <string name="settings_main_menu">🏠 Main Menu</string>
     <string name="sensitivity_label">Camera Sensitivity</string>
+
+    <!-- Game modes -->
     <string name="gamemode_survival">Survival</string>
     <string name="gamemode_creative">Creative</string>
     <string name="gamemode_adventure">Adventure</string>
     <string name="gamemode_spectator">Spectator</string>
+
+    <!-- Loading -->
+    <string name="loading">Loading world…</string>
 </resources>
