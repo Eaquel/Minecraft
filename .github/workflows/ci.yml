@@ -10,6 +10,7 @@ env:
   GRADLE_VERSION:   "9.5.1"
   NDK_VERSION:      "29.0.14206865"
   CMAKE_VERSION:    "4.3.2"
+  CMAKE_MINOR:      "4.3"
   JAVA_VERSION:     "25"
   ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
 
@@ -34,13 +35,22 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v4
 
-      - name: Install NDK & CMake
+      - name: Install NDK via sdkmanager
         run: |
-          yes | sdkmanager \
-            "cmake;${{ env.CMAKE_VERSION }}" \
-            "ndk;${{ env.NDK_VERSION }}"
-          echo "CMAKE_HOME=$ANDROID_SDK_ROOT/cmake/${{ env.CMAKE_VERSION }}" >> $GITHUB_ENV
-          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/${{ env.NDK_VERSION }}"  >> $GITHUB_ENV
+          yes | sdkmanager "ndk;${{ env.NDK_VERSION }}"
+          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/${{ env.NDK_VERSION }}" >> $GITHUB_ENV
+
+      - name: Install CMake ${{ env.CMAKE_VERSION }} from cmake.org
+        run: |
+          CMAKE_URL="https://github.com/Kitware/CMake/releases/download/v${{ env.CMAKE_VERSION }}/cmake-${{ env.CMAKE_VERSION }}-linux-x86_64.tar.gz"
+          echo "Downloading CMake from: $CMAKE_URL"
+          curl -fsSL "$CMAKE_URL" -o cmake.tar.gz
+          sudo tar -xzf cmake.tar.gz -C /opt
+          CMAKE_DIR=$(ls -d /opt/cmake-${{ env.CMAKE_VERSION }}-linux-x86_64)
+          echo "CMAKE_HOME=$CMAKE_DIR"          >> $GITHUB_ENV
+          echo "$CMAKE_DIR/bin"                 >> $GITHUB_PATH
+          echo "cmake.dir=$CMAKE_DIR"           >> $GITHUB_ENV
+          cmake --version
 
       - name: Cache Gradle packages
         uses: actions/cache@v4
@@ -60,6 +70,7 @@ jobs:
 
       - name: Generate gradle.properties
         run: |
+          CMAKE_DIR=$(ls -d /opt/cmake-${{ env.CMAKE_VERSION }}-linux-x86_64)
           cat <<EOF > gradle.properties
           org.gradle.jvmargs=-Xmx6g -XX:+UseG1GC -XX:MaxMetaspaceSize=512m
           org.gradle.parallel=true
@@ -68,7 +79,7 @@ jobs:
           android.useAndroidX=true
           android.nonTransitiveRClass=true
           sdk.dir=$ANDROID_SDK_ROOT
-          cmake.dir=$ANDROID_SDK_ROOT/cmake/${{ env.CMAKE_VERSION }}
+          cmake.dir=$CMAKE_DIR
           ndk.dir=$ANDROID_SDK_ROOT/ndk/${{ env.NDK_VERSION }}
           EOF
 
@@ -95,13 +106,13 @@ jobs:
       - name: Upload Release APK
         uses: actions/upload-artifact@v4
         with:
-          name:            Omni_Craft-release-${{ github.sha }}
-          path:            Backrooms/build/outputs/apk/release/*.apk
-          retention-days:  30
+          name:           Omni_Craft-release-${{ github.sha }}
+          path:           Backrooms/build/outputs/apk/release/*.apk
+          retention-days: 30
 
       - name: Upload Native Debug Symbols
         uses: actions/upload-artifact@v4
         with:
-          name:            Omni_Craft-symbols-${{ github.sha }}
-          path:            Backrooms/build/outputs/native-debug-symbols/**
-          retention-days:  14
+          name:           Omni_Craft-symbols-${{ github.sha }}
+          path:           Backrooms/build/outputs/native-debug-symbols/**
+          retention-days: 14
