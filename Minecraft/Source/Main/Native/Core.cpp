@@ -1238,10 +1238,18 @@ public:
         int pcx=flr(player.pos.x/CS),pcz=flr(player.pos.z/CS);
 
         {
-            std::shared_lock lk(world.chunkMtx);
-            for(auto& [k,ch]:world.chunks){
-                if(std::abs(ch->cx-pcx)>MESH_RD||std::abs(ch->cz-pcz)>MESH_RD) continue;
+            std::vector<World::ChunkPtr> visibleChunks;
+            { std::shared_lock lk(world.chunkMtx);
+              for(auto& [k,ch]:world.chunks){
+                  if(std::abs(ch->cx-pcx)>MESH_RD||std::abs(ch->cz-pcz)>MESH_RD) continue;
+                  visibleChunks.push_back(ch);
+              }
+            }
+
+            for(auto& ch:visibleChunks){
                 if(ch->meshReady) uploadChunkMesh(*ch);
+            }
+            for(auto& ch:visibleChunks){
                 float cx2=(float)(ch->cx*CS),cz2=(float)(ch->cz*CS);
                 if(!aabbInFrustum(frustum,cx2,0,cz2,(float)CS)) continue;
                 if(ch->vao&&ch->indexCount>0){
@@ -1263,8 +1271,7 @@ public:
             glBindTexture(GL_TEXTURE_2D,atlasTex);
             setUniform1i(waterProg,"uAtlas",0);
 
-            for(auto& [k,ch]:world.chunks){
-                if(std::abs(ch->cx-pcx)>MESH_RD||std::abs(ch->cz-pcz)>MESH_RD) continue;
+            for(auto& ch:visibleChunks){
                 float cx2=(float)(ch->cx*CS),cz2=(float)(ch->cz*CS);
                 if(!aabbInFrustum(frustum,cx2,0,cz2,(float)CS)) continue;
                 if(ch->tVao&&ch->tIndexCount>0){
@@ -1392,41 +1399,53 @@ static void scheduleChunkWork(GameState& gs){
         int cx=pcx+dx,cz=pcz+dz;
         uint64_t k=World::key(cx,cz);
         auto ch=gs.world->getChunk(cx,cz);
+
         if(!ch){
+            { std::lock_guard lk(gs.genMtx);
+              if(gs.genInFlight.count(k)) continue;
+              gs.genInFlight.insert(k); }
             ch=gs.world->getOrCreate(cx,cz);
-            std::lock_guard lk(gs.genMtx);
-            if(!gs.genInFlight.count(k)){
-                gs.genInFlight.insert(k);
-                gs.threadPool->enqueue([&gs,cx,cz,k]{
-                    auto c=gs.world->getOrCreate(cx,cz);
-                    if(!c->generated) gs.world->generateChunk(*c);
-                    std::lock_guard lk2(gs.genMtx);
-                    gs.genInFlight.erase(k);
-                    c->meshDirty=true;
-                });
-            }
+            World* wptr=gs.world.get();
+            gs.threadPool->enqueue([wptr,cx,cz,k,&gs]{
+                auto c=wptr->getOrCreate(cx,cz);
+                if(!c->generated) wptr->generateChunk(*c);
+                c->meshDirty=true;
+                std::lock_guard lk2(gs.genMtx);
+                gs.genInFlight.erase(k);
+            });
+            continue;
         }
-        if(ch&&ch->generated&&ch->meshDirty&&!ch->meshBuilding){
-            std::lock_guard lk(gs.meshMtx);
-            if(!gs.meshInFlight.count(k)){
-                gs.meshInFlight.insert(k);
-                ch->meshBuilding=true;
-                gs.threadPool->enqueue([&gs,cx,cz,k]{
-                    auto c=gs.world->getChunk(cx,cz);
-                    if(c) buildChunkMesh(*c,*gs.world);
-                    std::lock_guard lk2(gs.meshMtx);
-                    gs.meshInFlight.erase(k);
-                });
-            }
+
+        if(ch->generated&&ch->meshDirty&&!ch->meshBuilding){
+            { std::lock_guard lk(gs.meshMtx);
+              if(gs.meshInFlight.count(k)) continue;
+              gs.meshInFlight.insert(k); }
+            ch->meshBuilding=true;
+            World* wptr=gs.world.get();
+            gs.threadPool->enqueue([wptr,cx,cz,k,&gs]{
+                auto c=wptr->getChunk(cx,cz);
+                if(c&&c->generated) buildChunkMesh(*c,*wptr);
+                std::lock_guard lk2(gs.meshMtx);
+                gs.meshInFlight.erase(k);
+            });
         }
     }
 
-    std::unique_lock lk(gs.world->chunkMtx);
     std::vector<uint64_t> toRemove;
-    for(auto& [k,ch]:gs.world->chunks){
-        if(std::abs(ch->cx-pcx)>RD+2||std::abs(ch->cz-pcz)>RD+2) toRemove.push_back(k);
+    { std::shared_lock lk(gs.world->chunkMtx);
+      for(auto& [k,ch]:gs.world->chunks)
+          if(std::abs(ch->cx-pcx)>RD+2||std::abs(ch->cz-pcz)>RD+2)
+              toRemove.push_back(k); }
+    if(!toRemove.empty()){
+        std::unique_lock lk(gs.world->chunkMtx);
+        for(auto k:toRemove){
+            auto it=gs.world->chunks.find(k);
+            if(it!=gs.world->chunks.end()&&
+               std::abs(it->second->cx-pcx)>RD+2&&
+               std::abs(it->second->cz-pcz)>RD+2)
+                gs.world->chunks.erase(it);
+        }
     }
-    for(auto k:toRemove) gs.world->chunks.erase(k);
 }
 
 static void gameTick(GameState& gs,float dt){
@@ -1446,7 +1465,7 @@ static void gameTick(GameState& gs,float dt){
                     falls.push_back({{ch->cx*CS+x,y,ch->cz*CS+z},b});
             }
         lk.unlock();
-        for(auto& [pos,b]:falls){ gs.world->setBlock(pos.x,pos.y,AIR,AIR); gs.world->setBlock(pos.x,pos.y-1,pos.z,b); }
+        for(auto& [pos,b]:falls){ gs.world->setBlock(pos.x,pos.y,pos.z,AIR); gs.world->setBlock(pos.x,pos.y-1,pos.z,b); }
     }
 
     if(gs.world->tick%24==0){
@@ -1477,7 +1496,7 @@ JNIEXPORT void JNICALL Java_com_omni_craft_Engine_nativeInit(JNIEnv*,jclass,jint
         gState->world=std::make_unique<World>((uint64_t)seed);
         gState->threadPool=std::make_unique<ThreadPool>(std::max(2,(int)std::thread::hardware_concurrency()));
         gState->renderer.init(w,h);
-        for(int dx=-4;dx<=4;dx++) for(int dz=-4;dz<=4;dz++){
+        for(int dx=-3;dx<=3;dx++) for(int dz=-3;dz<=3;dz++){
             auto c=gState->world->getOrCreate(dx,dz);
             gState->world->generateChunk(*c);
         }
