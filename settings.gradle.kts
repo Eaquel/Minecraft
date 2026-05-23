@@ -26,4 +26,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "Omni_Craft"
-include(":Backrooms")
+include(":Minecraft")
