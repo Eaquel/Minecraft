@@ -136,7 +136,7 @@ class Activity : Activity() {
     private lateinit var sensitivityBar:   SeekBar
     private lateinit var sensitivityLabel: TextView
 
-    private val hotbarSlots  = Array(9) { TextView(this) }
+    private val hotbarSlots  = arrayOfNulls<TextView>(9)
     private var selectedSlot = 0
     private var sensitivity  = 0.25f
     private var sprintToggle = false
@@ -820,7 +820,7 @@ class Activity : Activity() {
         }
         for (i in 0..8) {
             val idx = i
-            hotbarSlots[i].setOnClickListener {
+            hotbarSlots[i]?.setOnClickListener {
                 selectedSlot = idx
                 surface.queueEvent { engine.onSlot(idx) }
                 updateHotbarHighlight()
@@ -835,7 +835,7 @@ class Activity : Activity() {
     }
 
     private fun updateHotbarHighlight() {
-        for (i in 0..8) hotbarSlots[i].setBackgroundColor(
+        for (i in 0..8) hotbarSlots[i]?.setBackgroundColor(
             if (i == selectedSlot) Color.argb(195, 255, 255, 95)
             else Color.argb(95, 48, 48, 48)
         )
@@ -926,7 +926,7 @@ class Activity : Activity() {
                 val slot  = inv.getJSONObject(i)
                 val id    = slot.getInt("id")
                 val count = slot.getInt("count")
-                hotbarSlots[i].text = if (id > 0) "$id\n×$count" else ""
+                hotbarSlots[i]?.text = if (id > 0) "$id\n×$count" else ""
             }
         } catch (_: Exception) {}
     }
