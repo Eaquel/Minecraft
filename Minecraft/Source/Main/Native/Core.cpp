@@ -48,9 +48,6 @@ static constexpr int   INV_SIZE  = 36;
 static constexpr int   HOTBAR_SZ = 9;
 static constexpr int   MAX_STACK = 64;
 static constexpr int   ATLAS_DIM = 16;
-static constexpr float ATLAS_UV  = 1.0f / ATLAS_DIM;
-static constexpr int   MAX_LIGHTS = 64;
-static constexpr int   SHADOW_SZ = 1024;
 
 enum BlockID : uint8_t {
     AIR=0,
@@ -222,11 +219,6 @@ static Mat4 matOrtho(float l,float r,float b,float t,float n,float fa){
     m.m[12]=-(r+l)/(r-l); m.m[13]=-(t+b)/(t-b); m.m[14]=-(fa+n)/(fa-n); m.m[15]=1;
     return m;
 }
-static Mat4 matTranslate(float x,float y,float z){
-    Mat4 m; m.m[0]=m.m[5]=m.m[10]=m.m[15]=1;
-    m.m[12]=x; m.m[13]=y; m.m[14]=z; return m;
-}
-
 static Frustum buildFrustum(const Mat4& vp){
     Frustum f;
     auto& m=vp.m;
@@ -820,7 +812,6 @@ static GLuint linkProg(const char* vs,const char* fs){
     return p;
 }
 
-static const int TILE=16;
 static const float TUV=1.f/ATLAS_DIM;
 
 static void tileUV(uint8_t tile,float& u0,float& v0){
