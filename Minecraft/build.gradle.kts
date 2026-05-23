@@ -84,10 +84,13 @@ android {
         }
     }
 
-    sourceSets["main"].apply {
-        manifest.srcFile("Source/Main/AndroidManifests.xml")
-        kotlin.directories.add("Source/Main/Kotlin")
-        resources.directories.add("Source/Main/Res")
+    sourceSets {
+        getByName("main") {
+            manifest.srcFile("Source/Main/AndroidManifests.xml")
+            java.srcDirs("Source/Main/Kotlin")
+            kotlin.srcDirs("Source/Main/Kotlin")
+            res.srcDirs("Source/Main/Res")
+        }
     }
 
     compileOptions {

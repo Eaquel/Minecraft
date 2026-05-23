@@ -16,6 +16,7 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.*
 import androidx.core.view.isVisible
+import com.omni.craft.R
 import org.json.JSONArray
 import kotlin.math.*
 import javax.microedition.khronos.egl.EGLConfig
@@ -33,25 +34,24 @@ class Engine(@Suppress("UNUSED_PARAMETER") ctx: Context) {
         @JvmStatic external fun nativeResize(w: Int, h: Int)
     }
 
-    fun isInitialized(): Boolean = nativeIsInitialized()
-
+    fun isInitialized(): Boolean                = nativeIsInitialized()
     fun onJoystick(x: Float, y: Float)          = nativeJoystick(x, y)
-    fun onCameraDrag(dx: Float, dy: Float)       = nativeCameraInput(dx, dy)
-    fun onJump()                                 = nativeJump()
-    fun onBreakStart()                           = nativeStartBreak()
-    fun onBreakStop()                            = nativeStopBreak()
-    fun onPlace()                                = nativeTap(1)
-    fun onSneak(on: Boolean)                     = nativeSneak(on)
-    fun onSprint(on: Boolean)                    = nativeSprint(on)
-    fun onFlyUp(on: Boolean)                     = nativeFlyUp(on)
-    fun onFlyDown(on: Boolean)                   = nativeFlyDown(on)
-    fun onSlot(slot: Int)                        = nativeSelectSlot(slot)
-    fun onChat(msg: String)                      = nativeSendChat(msg)
-    fun onSensitivity(s: Float)                  = nativeSetSensitivity(s)
-    fun onCraft(grid: IntArray)                  = nativeCraftItem(grid)
-    fun chatLog(): String                        = nativeGetChatLog()
-    fun inventory(): String                      = nativeGetInventory()
-    fun destroy()                                = nativeDestroy()
+    fun onCameraDrag(dx: Float, dy: Float)      = nativeCameraInput(dx, dy)
+    fun onJump()                                = nativeJump()
+    fun onBreakStart()                          = nativeStartBreak()
+    fun onBreakStop()                           = nativeStopBreak()
+    fun onPlace()                               = nativeTap(1)
+    fun onSneak(on: Boolean)                    = nativeSneak(on)
+    fun onSprint(on: Boolean)                   = nativeSprint(on)
+    fun onFlyUp(on: Boolean)                    = nativeFlyUp(on)
+    fun onFlyDown(on: Boolean)                  = nativeFlyDown(on)
+    fun onSlot(slot: Int)                       = nativeSelectSlot(slot)
+    fun onChat(msg: String)                     = nativeSendChat(msg)
+    fun onSensitivity(s: Float)                 = nativeSetSensitivity(s)
+    fun onCraft(grid: IntArray)                 = nativeCraftItem(grid)
+    fun chatLog(): String                       = nativeGetChatLog()
+    fun inventory(): String                     = nativeGetInventory()
+    fun destroy()                               = nativeDestroy()
 
     private external fun nativeJoystick(x: Float, y: Float)
     private external fun nativeCameraInput(dx: Float, dy: Float)
@@ -133,28 +133,35 @@ class Activity : Activity() {
     private lateinit var sensitivityBar:   SeekBar
     private lateinit var sensitivityLabel: TextView
 
-    private val hotbarSlots   = Array(9) { TextView(this) }
-    private var selectedSlot  = 0
-    private var sensitivity   = 0.25f
-    private var sprintToggle  = false
-    private var gameStarted   = false
+    private val hotbarSlots  = Array(9) { TextView(this) }
+    private var selectedSlot = 0
+    private var sensitivity  = 0.25f
+    private var sprintToggle = false
+    private var gameStarted  = false
 
-    private var joyPointerId  = -1
-    private var camPointerId  = -1
-    private var joyBaseX      = 0f
-    private var joyBaseY      = 0f
-    private val joyRadius     = 110f
-    private val joyKnobHalf   = 55f
+    private var joyPointerId = -1
+    private var camPointerId = -1
+    private var joyBaseX     = 0f
+    private var joyBaseY     = 0f
+    private val joyRadius    = 110f
+    private val joyKnobHalf  = 55f
 
-    private val handler         = Handler(Looper.getMainLooper())
-    private val hudUpdateTick   = object : Runnable {
+    private val handler       = Handler(Looper.getMainLooper())
+    private val hudUpdateTick = object : Runnable {
         override fun run() { refreshHud(); handler.postDelayed(this, 80) }
     }
+
+    // ── String helpers (R.string erişimi) ─────────────────────────────────
+    private fun str(id: Int): String = getString(id)
+    private fun str(id: Int, vararg args: Any): String = getString(id, *args)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestWindowFeature(Window.FEATURE_NO_TITLE)
-        window.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN)
+        window.setFlags(
+            WindowManager.LayoutParams.FLAG_FULLSCREEN,
+            WindowManager.LayoutParams.FLAG_FULLSCREEN
+        )
         applyImmersive()
 
         prefs       = getSharedPreferences("omnicraft", MODE_PRIVATE)
@@ -175,27 +182,32 @@ class Activity : Activity() {
         mainMenuPanel.isVisible = true
     }
 
-    private fun dp(v: Float): Int   = (v * resources.displayMetrics.density + .5f).toInt()
+    private fun dp(v: Float): Int    = (v * resources.displayMetrics.density + .5f).toInt()
     private fun dpf(v: Float): Float = v * resources.displayMetrics.density
     private fun matchFull() = FrameLayout.LayoutParams(
         ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
 
+    // ════════════════════════════════════════════════════════════════════════
+    // Ana Menü
+    // ════════════════════════════════════════════════════════════════════════
     private fun buildMainMenu() {
         mainMenuPanel = FrameLayout(this).apply { setBackgroundColor(Color.argb(248, 8, 8, 18)) }
 
         mainMenuPanel.addView(TextView(this).apply {
-            text = getString(R.string.app_name); textSize = 46f; setTextColor(Color.WHITE)
+            text = str(R.string.app_name); textSize = 46f; setTextColor(Color.WHITE)
             gravity = Gravity.CENTER
             setShadowLayer(10f, 4f, 4f, Color.argb(200, 0, 180, 255))
-            layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(80f))
-                .apply { topMargin = dp(55f) }
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(80f)
+            ).apply { topMargin = dp(55f) }
         })
 
         mainMenuPanel.addView(TextView(this).apply {
-            text = getString(R.string.menu_tagline); textSize = 13f
+            text = str(R.string.menu_tagline); textSize = 13f
             setTextColor(Color.argb(190, 140, 200, 255)); gravity = Gravity.CENTER
-            layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(28f))
-                .apply { topMargin = dp(142f) }
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(28f)
+            ).apply { topMargin = dp(142f) }
         })
 
         val col = LinearLayout(this).apply {
@@ -207,20 +219,21 @@ class Activity : Activity() {
         fun menuBtn(label: String, bg: Int) = Button(this).apply {
             text = label; textSize = 17f; setTextColor(Color.WHITE); setBackgroundColor(bg)
         }
-        val btnPlay   = menuBtn(getString(R.string.menu_play),    Color.argb(220, 38, 130, 38))
-        val btnWorlds = menuBtn(getString(R.string.menu_worlds),  Color.argb(220, 38, 75,  155))
-        val btnSet    = menuBtn(getString(R.string.btn_settings), Color.argb(220, 75, 75,  75))
-        val btnQuit   = menuBtn(getString(R.string.menu_quit),    Color.argb(220, 155, 38, 38))
+
+        val btnPlay   = menuBtn(str(R.string.menu_play),    Color.argb(220, 38, 130, 38))
+        val btnWorlds = menuBtn(str(R.string.menu_worlds),  Color.argb(220, 38, 75,  155))
+        val btnSet    = menuBtn(str(R.string.btn_settings), Color.argb(220, 75, 75,  75))
+        val btnQuit   = menuBtn(str(R.string.menu_quit),    Color.argb(220, 155, 38, 38))
 
         btnPlay.setOnClickListener {
             val s = prefs.getLong("world_seed", System.currentTimeMillis())
-            val n = prefs.getString("world_name", getString(R.string.world_default_name))
-                ?: getString(R.string.world_default_name)
+            val n = prefs.getString("world_name", str(R.string.world_default_name))
+                ?: str(R.string.world_default_name)
             startGame(s, n)
         }
         btnWorlds.setOnClickListener { mainMenuPanel.isVisible = false; openWorldList() }
-        btnSet.setOnClickListener   { mainMenuPanel.isVisible = false; settingsPanel.isVisible = true }
-        btnQuit.setOnClickListener  { finishAffinity() }
+        btnSet.setOnClickListener    { mainMenuPanel.isVisible = false; settingsPanel.isVisible = true }
+        btnQuit.setOnClickListener   { finishAffinity() }
 
         for (btn in listOf(btnPlay, btnWorlds, btnSet, btnQuit))
             col.addView(btn, LinearLayout.LayoutParams(
@@ -228,7 +241,7 @@ class Activity : Activity() {
         mainMenuPanel.addView(col)
 
         mainMenuPanel.addView(TextView(this).apply {
-            text = getString(R.string.menu_version, "2.0.0"); textSize = 10f
+            text = str(R.string.menu_version, "2.0.0"); textSize = 10f
             setTextColor(Color.GRAY); gravity = Gravity.END or Gravity.BOTTOM
             setPadding(0, 0, dp(12f), dp(8f))
             layoutParams = matchFull()
@@ -237,6 +250,9 @@ class Activity : Activity() {
         overlay.addView(mainMenuPanel, matchFull())
     }
 
+    // ════════════════════════════════════════════════════════════════════════
+    // Dünya Listesi
+    // ════════════════════════════════════════════════════════════════════════
     private fun openWorldList() {
         val count  = prefs.getInt("world_count", 0)
         val worlds = (0 until count).mapNotNull { i ->
@@ -251,13 +267,15 @@ class Activity : Activity() {
             setPadding(dp(20f), dp(28f), dp(20f), dp(18f))
         }
 
-        val hdr = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        val hdr = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+        }
         hdr.addView(TextView(this).apply {
-            text = getString(R.string.menu_worlds); textSize = 22f; setTextColor(Color.WHITE)
+            text = str(R.string.menu_worlds); textSize = 22f; setTextColor(Color.WHITE)
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         })
         hdr.addView(Button(this).apply {
-            text = getString(R.string.menu_back); textSize = 12f
+            text = str(R.string.menu_back); textSize = 12f
             setTextColor(Color.WHITE); setBackgroundColor(Color.argb(200, 100, 48, 48))
             setOnClickListener { worldListPanel.isVisible = false; mainMenuPanel.isVisible = true }
         }, LinearLayout.LayoutParams(dp(100f), dp(44f)))
@@ -267,7 +285,7 @@ class Activity : Activity() {
         val list   = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         if (worlds.isEmpty()) {
             list.addView(TextView(this).apply {
-                text = getString(R.string.world_no_worlds); textSize = 13f
+                text = str(R.string.world_no_worlds); textSize = 13f
                 setTextColor(Color.GRAY); gravity = Gravity.CENTER
                 setPadding(0, dp(38f), 0, 0)
             })
@@ -277,11 +295,11 @@ class Activity : Activity() {
             ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
 
         worldListPanel.addView(Button(this).apply {
-            text = getString(R.string.world_new); textSize = 15f
+            text = str(R.string.world_new); textSize = 15f
             setTextColor(Color.WHITE); setBackgroundColor(Color.argb(220, 38, 125, 38))
             setOnClickListener { showNewWorldDialog() }
-        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(50f))
-            .apply { topMargin = dp(10f) })
+        }, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, dp(50f)).apply { topMargin = dp(10f) })
 
         overlay.addView(worldListPanel, matchFull())
     }
@@ -290,20 +308,23 @@ class Activity : Activity() {
         orientation = LinearLayout.HORIZONTAL
         setBackgroundColor(Color.argb(145, 28, 38, 58))
         setPadding(dp(12f), dp(10f), dp(12f), dp(10f))
-        val lp = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        val lp = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         lp.topMargin = dp(6f); layoutParams = lp
 
         val info = LinearLayout(this@Activity).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         }
-        info.addView(TextView(this@Activity).apply { text = name; textSize = 15f; setTextColor(Color.WHITE) })
         info.addView(TextView(this@Activity).apply {
-            text = getString(R.string.world_seed_label, seed); textSize = 10f; setTextColor(Color.GRAY)
+            text = name; textSize = 15f; setTextColor(Color.WHITE)
+        })
+        info.addView(TextView(this@Activity).apply {
+            text = str(R.string.world_seed_label, seed); textSize = 10f; setTextColor(Color.GRAY)
         })
         addView(info)
         addView(Button(this@Activity).apply {
-            text = getString(R.string.world_load); textSize = 11f
+            text = str(R.string.world_load); textSize = 11f
             setTextColor(Color.WHITE); setBackgroundColor(Color.argb(200, 38, 95, 175))
             setOnClickListener { startGame(seed, name) }
         }, LinearLayout.LayoutParams(dp(88f), dp(44f)))
@@ -318,28 +339,32 @@ class Activity : Activity() {
         val dialog = AlertDialog.Builder(this).setView(layout).create()
 
         val nameEt = EditText(this).apply {
-            hint = getString(R.string.world_name_hint); setHintTextColor(Color.GRAY)
+            hint = str(R.string.world_name_hint); setHintTextColor(Color.GRAY)
             setTextColor(Color.WHITE); setBackgroundColor(Color.argb(175, 38, 38, 58))
-            inputType = InputType.TYPE_CLASS_TEXT; setPadding(dp(8f), dp(8f), dp(8f), dp(8f))
+            inputType = InputType.TYPE_CLASS_TEXT
+            setPadding(dp(8f), dp(8f), dp(8f), dp(8f))
         }
         val seedEt = EditText(this).apply {
-            hint = getString(R.string.world_seed_hint); setHintTextColor(Color.GRAY)
+            hint = str(R.string.world_seed_hint); setHintTextColor(Color.GRAY)
             setTextColor(Color.WHITE); setBackgroundColor(Color.argb(175, 38, 38, 58))
             inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_SIGNED
             setPadding(dp(8f), dp(8f), dp(8f), dp(8f))
         }
 
-        val btnRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.END }
+        val btnRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.END
+        }
         btnRow.addView(Button(this).apply {
-            text = getString(R.string.menu_back)
+            text = str(R.string.menu_back)
             setBackgroundColor(Color.argb(200, 115, 48, 48)); setTextColor(Color.WHITE)
             setOnClickListener { dialog.dismiss() }
         }, LinearLayout.LayoutParams(dp(100f), dp(44f)).apply { rightMargin = dp(8f) })
         btnRow.addView(Button(this).apply {
-            text = getString(R.string.world_create)
+            text = str(R.string.world_create)
             setBackgroundColor(Color.argb(200, 38, 125, 38)); setTextColor(Color.WHITE)
             setOnClickListener {
-                val n = nameEt.text.toString().trim().ifEmpty { getString(R.string.world_default_name) }
+                val n = nameEt.text.toString().trim()
+                    .ifEmpty { str(R.string.world_default_name) }
                 val s = seedEt.text.toString().toLongOrNull() ?: System.currentTimeMillis()
                 saveWorld(s, n); dialog.dismiss()
                 worldListPanel.isVisible = false
@@ -349,7 +374,7 @@ class Activity : Activity() {
         }, LinearLayout.LayoutParams(dp(100f), dp(44f)))
 
         layout.addView(TextView(this).apply {
-            text = getString(R.string.world_new); textSize = 19f
+            text = str(R.string.world_new); textSize = 19f
             setTextColor(Color.WHITE); gravity = Gravity.CENTER
         })
         layout.addView(nameEt, LinearLayout.LayoutParams(
@@ -365,14 +390,22 @@ class Activity : Activity() {
     private fun saveWorld(seed: Long, name: String) {
         val count = prefs.getInt("world_count", 0)
         prefs.edit()
-            .putLong("world_seed_$count", seed).putString("world_name_$count", name)
+            .putLong("world_seed_$count", seed)
+            .putString("world_name_$count", name)
             .putInt("world_count", count + 1)
-            .putLong("world_seed", seed).putString("world_name", name)
+            .putLong("world_seed", seed)
+            .putString("world_name", name)
             .apply()
     }
 
+    // ════════════════════════════════════════════════════════════════════════
+    // Oyun Başlat
+    // ════════════════════════════════════════════════════════════════════════
     private fun startGame(seed: Long, name: String) {
-        prefs.edit().putLong("world_seed", seed).putString("world_name", name).apply()
+        prefs.edit()
+            .putLong("world_seed", seed)
+            .putString("world_name", name)
+            .apply()
         engine.seed = seed
         mainMenuPanel.isVisible = false
         if (::worldListPanel.isInitialized) worldListPanel.isVisible = false
@@ -396,10 +429,13 @@ class Activity : Activity() {
             .forEach { it.isVisible = v }
     }
 
+    // ════════════════════════════════════════════════════════════════════════
+    // HUD
+    // ════════════════════════════════════════════════════════════════════════
     private fun buildHud() {
-        val sw    = resources.displayMetrics.widthPixels
-        val jbSz  = dp(joyRadius * 2)
-        val jkSz  = dp(joyKnobHalf * 2)
+        val sw   = resources.displayMetrics.widthPixels
+        val jbSz = dp(joyRadius * 2)
+        val jkSz = dp(joyKnobHalf * 2)
 
         joystickBase = View(this).apply { setBackgroundColor(Color.argb(48, 200, 200, 200)) }
         overlay.addView(joystickBase, FrameLayout.LayoutParams(jbSz, jbSz).apply {
@@ -420,63 +456,77 @@ class Activity : Activity() {
 
         btnJump = iconBtn("⬆", Color.argb(145, 95, 175, 95)).also {
             overlay.addView(it, FrameLayout.LayoutParams(dp(68f), dp(68f)).apply {
-                gravity = Gravity.BOTTOM or Gravity.END; bottomMargin = dp(195f); rightMargin = dp(28f)
+                gravity = Gravity.BOTTOM or Gravity.END
+                bottomMargin = dp(195f); rightMargin = dp(28f)
             })
         }
         btnBreak = iconBtn("⛏", Color.argb(145, 195, 75, 75)).also {
             overlay.addView(it, FrameLayout.LayoutParams(dp(78f), dp(78f)).apply {
-                gravity = Gravity.BOTTOM or Gravity.END; bottomMargin = dp(110f); rightMargin = dp(116f)
+                gravity = Gravity.BOTTOM or Gravity.END
+                bottomMargin = dp(110f); rightMargin = dp(116f)
             })
         }
         btnPlace = iconBtn("🏗", Color.argb(145, 75, 75, 195)).also {
             overlay.addView(it, FrameLayout.LayoutParams(dp(78f), dp(78f)).apply {
-                gravity = Gravity.BOTTOM or Gravity.END; bottomMargin = dp(110f); rightMargin = dp(28f)
+                gravity = Gravity.BOTTOM or Gravity.END
+                bottomMargin = dp(110f); rightMargin = dp(28f)
             })
         }
 
         val sneakLeft = dp(36f) + jbSz + dp(10f)
         btnSneak = iconBtn("⬇", Color.argb(125, 175, 155, 75)).also {
             overlay.addView(it, FrameLayout.LayoutParams(dp(58f), dp(58f)).apply {
-                gravity = Gravity.BOTTOM or Gravity.START; bottomMargin = dp(110f); leftMargin = sneakLeft
+                gravity = Gravity.BOTTOM or Gravity.START
+                bottomMargin = dp(110f); leftMargin = sneakLeft
             })
         }
         btnSprint = iconBtn("🏃", Color.argb(125, 175, 95, 175)).also {
             overlay.addView(it, FrameLayout.LayoutParams(dp(58f), dp(58f)).apply {
-                gravity = Gravity.BOTTOM or Gravity.START; bottomMargin = dp(178f); leftMargin = sneakLeft
+                gravity = Gravity.BOTTOM or Gravity.START
+                bottomMargin = dp(178f); leftMargin = sneakLeft
             })
         }
         btnFlyUp = iconBtn("↑↑", Color.argb(125, 95, 195, 195)).also {
             overlay.addView(it, FrameLayout.LayoutParams(dp(54f), dp(54f)).apply {
-                gravity = Gravity.BOTTOM or Gravity.END; bottomMargin = dp(272f); rightMargin = dp(28f)
+                gravity = Gravity.BOTTOM or Gravity.END
+                bottomMargin = dp(272f); rightMargin = dp(28f)
             })
         }
         btnFlyDown = iconBtn("↓↓", Color.argb(125, 195, 195, 95)).also {
             overlay.addView(it, FrameLayout.LayoutParams(dp(54f), dp(54f)).apply {
-                gravity = Gravity.BOTTOM or Gravity.END; bottomMargin = dp(208f); rightMargin = dp(28f)
+                gravity = Gravity.BOTTOM or Gravity.END
+                bottomMargin = dp(208f); rightMargin = dp(28f)
             })
         }
 
         btnInventory = iconBtn("🎒", Color.argb(145, 145, 115, 75)).also {
             overlay.addView(it, FrameLayout.LayoutParams(dp(54f), dp(54f)).apply {
-                gravity = Gravity.TOP or Gravity.END; topMargin = dp(10f); rightMargin = dp(73f)
+                gravity = Gravity.TOP or Gravity.END
+                topMargin = dp(10f); rightMargin = dp(73f)
             })
         }
         btnChat = iconBtn("💬", Color.argb(145, 75, 125, 195)).also {
             overlay.addView(it, FrameLayout.LayoutParams(dp(54f), dp(54f)).apply {
-                gravity = Gravity.TOP or Gravity.END; topMargin = dp(10f); rightMargin = dp(136f)
+                gravity = Gravity.TOP or Gravity.END
+                topMargin = dp(10f); rightMargin = dp(136f)
             })
         }
         btnSettings = iconBtn("⚙", Color.argb(145, 125, 125, 125)).also {
             overlay.addView(it, FrameLayout.LayoutParams(dp(54f), dp(54f)).apply {
-                gravity = Gravity.TOP or Gravity.END; topMargin = dp(10f); rightMargin = dp(10f)
+                gravity = Gravity.TOP or Gravity.END
+                topMargin = dp(10f); rightMargin = dp(10f)
             })
         }
 
         hotbarRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         for (i in 0..8) {
             val slot = TextView(this).apply {
-                setBackgroundColor(if (i == 0) Color.argb(175, 255, 255, 100) else Color.argb(95, 48, 48, 48))
-                setTextColor(Color.WHITE); textSize = 9f; gravity = Gravity.CENTER; text = ""
+                setBackgroundColor(
+                    if (i == 0) Color.argb(175, 255, 255, 100)
+                    else Color.argb(95, 48, 48, 48)
+                )
+                setTextColor(Color.WHITE); textSize = 9f
+                gravity = Gravity.CENTER; text = ""
                 setPadding(2, 2, 2, 2)
             }
             hotbarSlots[i] = slot
@@ -487,33 +537,40 @@ class Activity : Activity() {
             gravity = Gravity.BOTTOM; bottomMargin = dp(52f)
         })
 
-        chatContainer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; isVisible = false }
-        chatMessages  = TextView(this).apply {
+        chatContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; isVisible = false
+        }
+        chatMessages = TextView(this).apply {
             setTextColor(Color.WHITE); textSize = 10f
             setBackgroundColor(Color.argb(115, 0, 0, 0))
             setPadding(dp(6f), dp(4f), dp(6f), dp(4f)); text = ""
         }
         val chatRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        chatInput   = EditText(this).apply {
-            hint = getString(R.string.chat_hint); setHintTextColor(Color.GRAY)
+        chatInput = EditText(this).apply {
+            hint = str(R.string.chat_hint); setHintTextColor(Color.GRAY)
             setTextColor(Color.WHITE); setBackgroundColor(Color.argb(175, 28, 28, 28))
-            inputType = InputType.TYPE_CLASS_TEXT; imeOptions = EditorInfo.IME_ACTION_SEND
+            inputType = InputType.TYPE_CLASS_TEXT
+            imeOptions = EditorInfo.IME_ACTION_SEND
             setPadding(dp(8f), dp(6f), dp(8f), dp(6f))
         }
         val sendBtn = Button(this).apply {
-            text = getString(R.string.chat_send)
+            text = str(R.string.chat_send)
             setBackgroundColor(Color.argb(195, 48, 145, 48)); setTextColor(Color.WHITE)
             setOnClickListener { sendChat() }
         }
         chatInput.setOnEditorActionListener { _, id, _ ->
             if (id == EditorInfo.IME_ACTION_SEND) { sendChat(); true } else false
         }
-        chatRow.addView(chatInput, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        chatRow.addView(sendBtn, LinearLayout.LayoutParams(dp(50f), ViewGroup.LayoutParams.WRAP_CONTENT))
-        chatContainer.addView(chatMessages, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+        chatRow.addView(chatInput,
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        chatRow.addView(sendBtn,
+            LinearLayout.LayoutParams(dp(50f), ViewGroup.LayoutParams.WRAP_CONTENT))
+        chatContainer.addView(chatMessages,
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         chatContainer.addView(chatRow)
         overlay.addView(chatContainer, FrameLayout.LayoutParams(sw * 2 / 3, dp(240f)).apply {
-            gravity = Gravity.BOTTOM or Gravity.START; bottomMargin = dp(110f); leftMargin = dp(10f)
+            gravity = Gravity.BOTTOM or Gravity.START
+            bottomMargin = dp(110f); leftMargin = dp(10f)
         })
 
         inventoryPanel = buildInventoryPanel()
@@ -525,6 +582,9 @@ class Activity : Activity() {
         wireControls()
     }
 
+    // ════════════════════════════════════════════════════════════════════════
+    // Envanter Paneli
+    // ════════════════════════════════════════════════════════════════════════
     private fun buildInventoryPanel(): LinearLayout {
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -533,7 +593,7 @@ class Activity : Activity() {
             gravity = Gravity.CENTER
         }
         panel.addView(TextView(this).apply {
-            text = getString(R.string.inventory_title)
+            text = str(R.string.inventory_title)
             textSize = 17f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
         })
 
@@ -543,25 +603,31 @@ class Activity : Activity() {
                 setBackgroundColor(Color.argb(145, 58, 58, 58))
                 setTextColor(Color.WHITE); textSize = 9f; gravity = Gravity.CENTER
                 text = ""; setPadding(4, 4, 4, 4)
-            }, GridLayout.LayoutParams().apply { width = dp(40f); height = dp(40f); setMargins(2, 2, 2, 2) })
+            }, GridLayout.LayoutParams().apply {
+                width = dp(40f); height = dp(40f); setMargins(2, 2, 2, 2)
+            })
         panel.addView(invGrid)
 
         panel.addView(TextView(this).apply {
-            text = getString(R.string.crafting_title)
+            text = str(R.string.crafting_title)
             textSize = 13f; setTextColor(Color.LTGRAY); gravity = Gravity.CENTER
             setPadding(0, dp(10f), 0, dp(4f))
         })
 
-        val craftRow  = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
+        val craftRow  = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER
+        }
         val craftGrid = GridLayout(this).apply { columnCount = 3; rowCount = 3 }
         for (i in 0..8)
             craftGrid.addView(EditText(this).apply {
-                hint = getString(R.string.crafting_id_hint)
+                hint = str(R.string.crafting_id_hint)
                 setTextColor(Color.WHITE); setHintTextColor(Color.GRAY)
                 setBackgroundColor(Color.argb(145, 78, 78, 78))
                 textSize = 9f; inputType = InputType.TYPE_CLASS_NUMBER
                 gravity = Gravity.CENTER; setPadding(2, 2, 2, 2)
-            }, GridLayout.LayoutParams().apply { width = dp(36f); height = dp(36f); setMargins(2, 2, 2, 2) })
+            }, GridLayout.LayoutParams().apply {
+                width = dp(36f); height = dp(36f); setMargins(2, 2, 2, 2)
+            })
         craftRow.addView(craftGrid)
         craftRow.addView(TextView(this).apply {
             text = "➤"; textSize = 18f; setTextColor(Color.WHITE)
@@ -574,7 +640,7 @@ class Activity : Activity() {
         panel.addView(craftRow)
 
         panel.addView(Button(this).apply {
-            text = getString(R.string.crafting_button)
+            text = str(R.string.crafting_button)
             setBackgroundColor(Color.argb(195, 58, 135, 58)); setTextColor(Color.WHITE)
             setOnClickListener {
                 val ids = Array(9) { i ->
@@ -585,7 +651,7 @@ class Activity : Activity() {
             }
         })
         panel.addView(Button(this).apply {
-            text = getString(R.string.close_button)
+            text = str(R.string.close_button)
             setBackgroundColor(Color.argb(195, 155, 48, 48)); setTextColor(Color.WHITE)
             setOnClickListener { inventoryPanel.isVisible = false }
         }, LinearLayout.LayoutParams(dp(145f), ViewGroup.LayoutParams.WRAP_CONTENT)
@@ -593,6 +659,9 @@ class Activity : Activity() {
         return panel
     }
 
+    // ════════════════════════════════════════════════════════════════════════
+    // Ayarlar Paneli
+    // ════════════════════════════════════════════════════════════════════════
     private fun buildSettingsPanel(): LinearLayout {
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -601,13 +670,14 @@ class Activity : Activity() {
             gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
         }
         panel.addView(TextView(this).apply {
-            text = getString(R.string.settings_title)
+            text = str(R.string.settings_title)
             textSize = 20f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
         })
 
         sensitivityLabel = TextView(this).apply {
-            text = "${getString(R.string.sensitivity_label)}: ${String.format("%.2f", sensitivity)}"
-            textSize = 13f; setTextColor(Color.LTGRAY); setPadding(0, dp(18f), 0, dp(5f))
+            text = "${str(R.string.sensitivity_label)}: ${String.format("%.2f", sensitivity)}"
+            textSize = 13f; setTextColor(Color.LTGRAY)
+            setPadding(0, dp(18f), 0, dp(5f))
         }
         panel.addView(sensitivityLabel)
 
@@ -616,32 +686,39 @@ class Activity : Activity() {
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(sb: SeekBar?, p: Int, user: Boolean) {
                     sensitivity = p / 100f + 0.05f
-                    sensitivityLabel.text = "${getString(R.string.sensitivity_label)}: ${String.format("%.2f", sensitivity)}"
+                    sensitivityLabel.text =
+                        "${str(R.string.sensitivity_label)}: ${String.format("%.2f", sensitivity)}"
                     surface.queueEvent { engine.onSensitivity(sensitivity) }
                 }
                 override fun onStartTrackingTouch(sb: SeekBar?) {}
-                override fun onStopTrackingTouch(sb: SeekBar?) { prefs.edit().putFloat("sensitivity", sensitivity).apply() }
+                override fun onStopTrackingTouch(sb: SeekBar?) {
+                    prefs.edit().putFloat("sensitivity", sensitivity).apply()
+                }
             })
         }
         panel.addView(sensitivityBar, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
         panel.addView(TextView(this).apply {
-            text = getString(R.string.settings_gamemode); textSize = 15f; setTextColor(Color.WHITE)
+            text = str(R.string.settings_gamemode)
+            textSize = 15f; setTextColor(Color.WHITE)
             setPadding(0, dp(18f), 0, dp(7f))
         })
 
         val gmRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         listOf(
-            getString(R.string.gamemode_survival)  to "/gamemode survival",
-            getString(R.string.gamemode_creative)  to "/gamemode creative",
-            getString(R.string.gamemode_adventure) to "/gamemode adventure",
-            getString(R.string.gamemode_spectator) to "/gamemode spectator"
+            str(R.string.gamemode_survival)  to "/gamemode survival",
+            str(R.string.gamemode_creative)  to "/gamemode creative",
+            str(R.string.gamemode_adventure) to "/gamemode adventure",
+            str(R.string.gamemode_spectator) to "/gamemode spectator"
         ).forEach { (lbl, cmd) ->
             gmRow.addView(Button(this).apply {
                 text = lbl; textSize = 10f
                 setBackgroundColor(Color.argb(195, 48, 75, 115)); setTextColor(Color.WHITE)
-                setOnClickListener { surface.queueEvent { engine.onChat(cmd) }; settingsPanel.isVisible = false }
+                setOnClickListener {
+                    surface.queueEvent { engine.onChat(cmd) }
+                    settingsPanel.isVisible = false
+                }
             }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                 .apply { setMargins(3, 0, 3, 0) })
         }
@@ -649,22 +726,26 @@ class Activity : Activity() {
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
         panel.addView(Button(this).apply {
-            text = getString(R.string.settings_main_menu)
+            text = str(R.string.settings_main_menu)
             setBackgroundColor(Color.argb(195, 115, 75, 18)); setTextColor(Color.WHITE)
             setOnClickListener {
                 settingsPanel.isVisible = false
                 if (gameStarted) {
-                    surface.onPause(); handler.removeCallbacks(hudUpdateTick)
-                    gameStarted = false; setHudVisible(false)
-                    chatContainer.isVisible = false; inventoryPanel.isVisible = false
+                    surface.onPause()
+                    handler.removeCallbacks(hudUpdateTick)
+                    gameStarted = false
+                    setHudVisible(false)
+                    chatContainer.isVisible  = false
+                    inventoryPanel.isVisible = false
                 }
                 mainMenuPanel.isVisible = true
             }
-        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        }, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
             .apply { topMargin = dp(14f) })
 
         panel.addView(Button(this).apply {
-            text = getString(R.string.close_button)
+            text = str(R.string.close_button)
             setBackgroundColor(Color.argb(195, 155, 48, 48)); setTextColor(Color.WHITE)
             setOnClickListener { settingsPanel.isVisible = false }
         }, LinearLayout.LayoutParams(dp(195f), ViewGroup.LayoutParams.WRAP_CONTENT)
@@ -672,43 +753,58 @@ class Activity : Activity() {
         return panel
     }
 
+    // ════════════════════════════════════════════════════════════════════════
+    // Kontroller
+    // ════════════════════════════════════════════════════════════════════════
     @SuppressLint("ClickableViewAccessibility")
     private fun wireControls() {
         btnJump.setOnTouchListener { _, e ->
-            if (e.actionMasked == MotionEvent.ACTION_DOWN) surface.queueEvent { engine.onJump() }
+            if (e.actionMasked == MotionEvent.ACTION_DOWN)
+                surface.queueEvent { engine.onJump() }
             true
         }
         btnBreak.setOnTouchListener { _, e ->
             when (e.actionMasked) {
-                MotionEvent.ACTION_DOWN -> surface.queueEvent { engine.onBreakStart() }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> surface.queueEvent { engine.onBreakStop() }
+                MotionEvent.ACTION_DOWN ->
+                    surface.queueEvent { engine.onBreakStart() }
+                MotionEvent.ACTION_UP,
+                MotionEvent.ACTION_CANCEL ->
+                    surface.queueEvent { engine.onBreakStop() }
             }; true
         }
-        btnPlace.setOnClickListener { surface.queueEvent { engine.onPlace() } }
-        btnSneak.setOnTouchListener { _, e ->
+        btnPlace.setOnClickListener  { surface.queueEvent { engine.onPlace() } }
+        btnSneak.setOnTouchListener  { _, e ->
             surface.queueEvent { engine.onSneak(e.actionMasked == MotionEvent.ACTION_DOWN) }; true
         }
         btnSprint.setOnClickListener {
             sprintToggle = !sprintToggle
             surface.queueEvent { engine.onSprint(sprintToggle) }
-            btnSprint.setBackgroundColor(if (sprintToggle) Color.argb(200, 215, 75, 215)
-                                         else Color.argb(125, 175, 95, 175))
+            btnSprint.setBackgroundColor(
+                if (sprintToggle) Color.argb(200, 215, 75, 215)
+                else Color.argb(125, 175, 95, 175)
+            )
         }
         btnFlyUp.setOnTouchListener { _, e ->
             when (e.actionMasked) {
-                MotionEvent.ACTION_DOWN -> surface.queueEvent { engine.onFlyUp(true) }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> surface.queueEvent { engine.onFlyUp(false) }
+                MotionEvent.ACTION_DOWN ->
+                    surface.queueEvent { engine.onFlyUp(true) }
+                MotionEvent.ACTION_UP,
+                MotionEvent.ACTION_CANCEL ->
+                    surface.queueEvent { engine.onFlyUp(false) }
             }; true
         }
         btnFlyDown.setOnTouchListener { _, e ->
             when (e.actionMasked) {
-                MotionEvent.ACTION_DOWN -> surface.queueEvent { engine.onFlyDown(true) }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> surface.queueEvent { engine.onFlyDown(false) }
+                MotionEvent.ACTION_DOWN ->
+                    surface.queueEvent { engine.onFlyDown(true) }
+                MotionEvent.ACTION_UP,
+                MotionEvent.ACTION_CANCEL ->
+                    surface.queueEvent { engine.onFlyDown(false) }
             }; true
         }
         btnInventory.setOnClickListener {
             inventoryPanel.isVisible = !inventoryPanel.isVisible
-            settingsPanel.isVisible = false
+            settingsPanel.isVisible  = false
         }
         btnChat.setOnClickListener {
             chatContainer.isVisible = !chatContainer.isVisible
@@ -719,13 +815,15 @@ class Activity : Activity() {
             }
         }
         btnSettings.setOnClickListener {
-            settingsPanel.isVisible = !settingsPanel.isVisible
+            settingsPanel.isVisible  = !settingsPanel.isVisible
             inventoryPanel.isVisible = false
         }
         for (i in 0..8) {
             val idx = i
             hotbarSlots[i].setOnClickListener {
-                selectedSlot = idx; surface.queueEvent { engine.onSlot(idx) }; updateHotbarHighlight()
+                selectedSlot = idx
+                surface.queueEvent { engine.onSlot(idx) }
+                updateHotbarHighlight()
             }
         }
         wireTouchInput()
@@ -738,7 +836,9 @@ class Activity : Activity() {
 
     private fun updateHotbarHighlight() {
         for (i in 0..8) hotbarSlots[i].setBackgroundColor(
-            if (i == selectedSlot) Color.argb(195, 255, 255, 95) else Color.argb(95, 48, 48, 48))
+            if (i == selectedSlot) Color.argb(195, 255, 255, 95)
+            else Color.argb(95, 48, 48, 48)
+        )
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -747,7 +847,7 @@ class Activity : Activity() {
         val jbSz   = dpf(joyRadius * 2)
         joyBaseX   = dpf(36f) + dpf(joyRadius)
         joyBaseY   = sh - dpf(110f) - jbSz + dpf(joyRadius)
-        val camLeft= resources.displayMetrics.widthPixels / 2f
+        val camLeft = resources.displayMetrics.widthPixels / 2f
 
         overlay.setOnTouchListener { _, event ->
             if (!gameStarted) return@setOnTouchListener false
@@ -758,7 +858,8 @@ class Activity : Activity() {
             val rawY   = event.getY(pIdx)
 
             when (action) {
-                MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
+                MotionEvent.ACTION_DOWN,
+                MotionEvent.ACTION_POINTER_DOWN -> {
                     if (rawX < camLeft && joyPointerId < 0) {
                         joyPointerId = pId; moveJoystick(rawX, rawY)
                     } else if (rawX >= camLeft && camPointerId < 0) {
@@ -768,9 +869,11 @@ class Activity : Activity() {
                 MotionEvent.ACTION_MOVE -> {
                     for (i in 0 until event.pointerCount) {
                         val id = event.getPointerId(i)
-                        val x  = event.getX(i); val y = event.getY(i)
-                        if (id == joyPointerId) { moveJoystick(x, y) }
-                        else if (id == camPointerId) {
+                        val x  = event.getX(i)
+                        val y  = event.getY(i)
+                        if (id == joyPointerId) {
+                            moveJoystick(x, y)
+                        } else if (id == camPointerId) {
                             val hist  = event.historySize
                             val prevX = if (hist > 0) event.getHistoricalX(i, hist - 1) else x
                             val prevY = if (hist > 0) event.getHistoricalY(i, hist - 1) else y
@@ -780,9 +883,11 @@ class Activity : Activity() {
                         }
                     }
                 }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP, MotionEvent.ACTION_CANCEL -> {
-                    if (pId == joyPointerId) { joyPointerId = -1; resetJoystick() }
-                    else if (pId == camPointerId) camPointerId = -1
+                MotionEvent.ACTION_UP,
+                MotionEvent.ACTION_POINTER_UP,
+                MotionEvent.ACTION_CANCEL -> {
+                    if (pId == joyPointerId)      { joyPointerId = -1; resetJoystick() }
+                    else if (pId == camPointerId) { camPointerId = -1 }
                 }
             }
             true
@@ -790,13 +895,14 @@ class Activity : Activity() {
     }
 
     private fun moveJoystick(rx: Float, ry: Float) {
-        val dx = rx - joyBaseX; val dy = ry - joyBaseY
+        val dx   = rx - joyBaseX
+        val dy   = ry - joyBaseY
         val dist = sqrt(dx * dx + dy * dy)
         val maxR = dpf(joyRadius)
-        val nx = if (dist > maxR) dx / dist else dx / maxR
-        val ny = if (dist > maxR) dy / dist else dy / maxR
-        val kx = joyBaseX + nx * maxR - dpf(joyKnobHalf)
-        val ky = joyBaseY + ny * maxR - dpf(joyKnobHalf)
+        val nx   = if (dist > maxR) dx / dist else dx / maxR
+        val ny   = if (dist > maxR) dy / dist else dy / maxR
+        val kx   = joyBaseX + nx * maxR - dpf(joyKnobHalf)
+        val ky   = joyBaseY + ny * maxR - dpf(joyKnobHalf)
         val offX = dpf(36f) + dpf(joyRadius) - dpf(joyKnobHalf)
         val sh   = resources.displayMetrics.heightPixels.toFloat()
         val offY = sh - dpf(110f) - dpf(joyRadius * 2) + dpf(joyRadius) - dpf(joyKnobHalf)
@@ -806,7 +912,8 @@ class Activity : Activity() {
     }
 
     private fun resetJoystick() {
-        joystickKnob.translationX = 0f; joystickKnob.translationY = 0f
+        joystickKnob.translationX = 0f
+        joystickKnob.translationY = 0f
         surface.queueEvent { engine.onJoystick(0f, 0f) }
     }
 
@@ -824,6 +931,9 @@ class Activity : Activity() {
         } catch (_: Exception) {}
     }
 
+    // ════════════════════════════════════════════════════════════════════════
+    // Lifecycle
+    // ════════════════════════════════════════════════════════════════════════
     override fun onResume() {
         super.onResume()
         if (gameStarted) { surface.onResume(); handler.post(hudUpdateTick) }
@@ -849,7 +959,7 @@ class Activity : Activity() {
     private fun applyImmersive() {
         window.decorView.systemUiVisibility =
             View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
-            View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+            View.SYSTEM_UI_FLAG_HIDE_NAVIGATION  or
             View.SYSTEM_UI_FLAG_FULLSCREEN
     }
 }
