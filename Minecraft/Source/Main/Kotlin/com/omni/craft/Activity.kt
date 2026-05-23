@@ -16,6 +16,9 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.*
 import androidx.core.view.isVisible
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.omni.craft.R
 import org.json.JSONArray
 import kotlin.math.*
@@ -158,10 +161,7 @@ class Activity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestWindowFeature(Window.FEATURE_NO_TITLE)
-        window.setFlags(
-            WindowManager.LayoutParams.FLAG_FULLSCREEN,
-            WindowManager.LayoutParams.FLAG_FULLSCREEN
-        )
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         applyImmersive()
 
         prefs       = getSharedPreferences("omnicraft", MODE_PRIVATE)
@@ -955,11 +955,10 @@ class Activity : Activity() {
         if (hasFocus) applyImmersive()
     }
 
-    @Suppress("DEPRECATION")
     private fun applyImmersive() {
-        window.decorView.systemUiVisibility =
-            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
-            View.SYSTEM_UI_FLAG_HIDE_NAVIGATION  or
-            View.SYSTEM_UI_FLAG_FULLSCREEN
+        val ctrl = WindowInsetsControllerCompat(window, window.decorView)
+        ctrl.hide(WindowInsetsCompat.Type.systemBars())
+        ctrl.systemBarsBehavior =
+            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
     }
 }
