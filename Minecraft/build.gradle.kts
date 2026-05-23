@@ -1,21 +1,22 @@
 plugins {
-    id("com.android.application")
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
 }
 
 android {
-    namespace  = "com.omni.craft"
-    compileSdk = 36
+    namespace   = "com.omni.craft"
+    compileSdk  = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {
         applicationId = "com.omni.craft"
-        minSdk        = 28
-        targetSdk     = 36
-        versionCode   = 1
-        versionName   = "1.0.0"
+        minSdk        = libs.versions.minSdk.get().toInt()
+        targetSdk     = libs.versions.targetSdk.get().toInt()
+        versionCode   = 2
+        versionName   = "2.0.0"
 
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
-            version = "29.0.14206865"
+            version     = libs.versions.ndk.get()
         }
 
         externalNativeBuild {
@@ -27,7 +28,7 @@ android {
                     "-funroll-loops",
                     "-fomit-frame-pointer",
                     "-fvisibility=hidden",
-                    "-DANDROID_STL=c++_shared"
+                    "-fvisibility-inlines-hidden"
                 )
                 arguments += listOf(
                     "-DANDROID_STL=c++_shared",
@@ -43,11 +44,11 @@ android {
     externalNativeBuild {
         cmake {
             path    = file("Source/Main/Native/CMakeLists.txt")
-            version = "4.3.2"
+            version = libs.versions.cmake.get()
         }
     }
 
-    ndkVersion = "29.0.14206865"
+    ndkVersion = libs.versions.ndk.get()
 
     buildTypes {
         release {
@@ -57,9 +58,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            ndk {
-                debugSymbolLevel = "FULL"
-            }
+            ndk { debugSymbolLevel = "FULL" }
             externalNativeBuild {
                 cmake {
                     arguments += "-DCMAKE_BUILD_TYPE=Release"
@@ -67,17 +66,34 @@ android {
                 }
             }
         }
+        debug {
+            isMinifyEnabled = false
+            externalNativeBuild {
+                cmake {
+                    arguments += "-DCMAKE_BUILD_TYPE=Debug"
+                    cppFlags  += listOf("-O0", "-g3", "-DDEBUG")
+                }
+            }
+        }
     }
 
     sourceSets["main"].apply {
         manifest.srcFile("Source/Main/AndroidManifests.xml")
-        kotlin.directories.add("Source/Main/Kotlin")
-        res.directories.add("Source/Main/Res")
+        kotlin.srcDirs("Source/Main/Kotlin")
+        res.srcDirs("Source/Main/Res")
     }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_25
         targetCompatibility = JavaVersion.VERSION_25
+    }
+
+    kotlinOptions {
+        jvmTarget = "25"
+        freeCompilerArgs += listOf(
+            "-opt-in=kotlin.RequiresOptIn",
+            "-opt-in=kotlin.ExperimentalStdlibApi"
+        )
     }
 
     packaging {
@@ -88,9 +104,7 @@ android {
                 "/*.txt"
             )
         }
-        jniLibs {
-            useLegacyPackaging = false
-        }
+        jniLibs { useLegacyPackaging = false }
     }
 
     splits {
@@ -107,22 +121,10 @@ android {
         checkReleaseBuilds = true
     }
 
-    buildFeatures {
-        buildConfig = true
-    }
-}
-
-tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
-    compilerOptions {
-        freeCompilerArgs.addAll(
-            "-opt-in=kotlin.RequiresOptIn",
-            "-opt-in=kotlin.ExperimentalStdlibApi"
-        )
-    }
+    buildFeatures { buildConfig = true }
 }
 
 dependencies {
-    implementation("org.jetbrains.kotlin:kotlin-stdlib:2.3.21")
-    implementation("androidx.core:core-ktx:1.16.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.kotlinx.coroutines.android)
 }

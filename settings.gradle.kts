@@ -18,7 +18,12 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
     }
+    versionCatalogs {
+        create("libs") {
+            from(files("Gradle/libs.versions.toml"))
+        }
+    }
 }
 
-rootProject.name = "OmniCraft"
-include(":Minecraft")
+rootProject.name = "Omni_Craft"
+include(":Backrooms")

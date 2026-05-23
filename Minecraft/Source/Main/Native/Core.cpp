@@ -7,52 +7,68 @@
 #include <cstdio>
 #include <cstdint>
 #include <vector>
+#include <array>
 #include <unordered_map>
+#include <unordered_set>
 #include <algorithm>
 #include <random>
 #include <memory>
 #include <mutex>
+#include <shared_mutex>
+#include <thread>
+#include <atomic>
+#include <condition_variable>
+#include <queue>
+#include <functional>
 #include <string>
+#include <string_view>
+#include <optional>
+#include <variant>
+#include <span>
+#include <bit>
+#include <chrono>
+#include <future>
+#include <deque>
 
-#define TAG  "OmniCraft"
-#define LOGI(...) __android_log_print(ANDROID_LOG_INFO,  TAG, __VA_ARGS__)
-#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
+#define LOGI(...) __android_log_print(ANDROID_LOG_INFO,  "OmniCraft", __VA_ARGS__)
+#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "OmniCraft", __VA_ARGS__)
+#define LOGW(...) __android_log_print(ANDROID_LOG_WARN,  "OmniCraft", __VA_ARGS__)
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Sabitler
-// ─────────────────────────────────────────────────────────────────────────────
-static constexpr int   CS    = 16;
-static constexpr int   WH    = 256;
-static constexpr int   RD    = 8;
-static constexpr float G     = -28.0f;
-static constexpr float JF    = 9.5f;
-static constexpr float WS    = 4.317f;
-static constexpr float SS    = 5.612f;
-static constexpr float SnS   = 1.295f;
-static constexpr float REACH = 4.5f;
-static constexpr int   INV   = 36;
-static constexpr int   HB    = 9;
-static constexpr int   MXST  = 64;
+static constexpr int   CS        = 16;
+static constexpr int   WH        = 256;
+static constexpr int   RD        = 10;
+static constexpr int   MESH_RD   = 9;
+static constexpr float GRAVITY   = -28.0f;
+static constexpr float JUMP_VEL  = 9.5f;
+static constexpr float WALK_SPD  = 4.317f;
+static constexpr float SPRINT_SPD= 5.612f;
+static constexpr float SNEAK_SPD = 1.295f;
+static constexpr float REACH     = 4.8f;
+static constexpr int   INV_SIZE  = 36;
+static constexpr int   HOTBAR_SZ = 9;
+static constexpr int   MAX_STACK = 64;
+static constexpr int   ATLAS_DIM = 16;
+static constexpr float ATLAS_UV  = 1.0f / ATLAS_DIM;
+static constexpr int   MAX_LIGHTS= 64;
+static constexpr int   SHADOW_SZ = 1024;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Blok & Item enum'ları
-// ─────────────────────────────────────────────────────────────────────────────
 enum BlockID : uint8_t {
-    AIR=0, GRASS, DIRT, STONE, COBBLESTONE, SAND, GRAVEL,
+    AIR=0,
+    GRASS, DIRT, STONE, COBBLESTONE, SAND, GRAVEL,
     OAK_LOG, OAK_LEAVES, OAK_PLANKS,
-    COAL_ORE, IRON_ORE, GOLD_ORE, DIAMOND_ORE, EMERALD_ORE, REDSTONE_ORE,
+    BIRCH_LOG, BIRCH_PLANKS, BIRCH_LEAVES,
+    SPRUCE_LOG, SPRUCE_PLANKS, SPRUCE_LEAVES,
+    COAL_ORE, IRON_ORE, GOLD_ORE, DIAMOND_ORE, EMERALD_ORE, REDSTONE_ORE, LAPIS_ORE,
     COAL_BLOCK, IRON_BLOCK, GOLD_BLOCK, DIAMOND_BLOCK,
     WATER, LAVA,
     GLASS, GLOWSTONE, NETHERRACK,
     CRAFTING_TABLE, FURNACE, CHEST,
-    LADDER, TORCH, DOOR_BOTTOM, DOOR_TOP,
-    BEDROCK, GRAVEL2,
-    BIRCH_LOG, BIRCH_PLANKS, BIRCH_LEAVES,
-    SPRUCE_LOG, SPRUCE_PLANKS, SPRUCE_LEAVES,
-    SNOW, ICE, CLAY,
+    LADDER, TORCH, BEDROCK,
+    SNOW_LAYER, ICE, CLAY,
     BRICK, STONE_BRICKS, MOSSY_COBBLE,
     TNT, BOOKSHELF, PUMPKIN, MELON,
-    WHEAT_0, WHEAT_1, WHEAT_2, WHEAT_3, WHEAT_4, WHEAT_5, WHEAT_6, WHEAT_7,
+    SANDSTONE, CACTUS, SPONGE,
+    WHEAT_0,WHEAT_1,WHEAT_2,WHEAT_3,WHEAT_4,WHEAT_5,WHEAT_6,WHEAT_7,
     BLOCK_COUNT
 };
 
@@ -60,149 +76,177 @@ enum ItemID : uint16_t {
     ITEM_NONE=0,
     ITEM_STICK=256, ITEM_COAL, ITEM_RAW_IRON, ITEM_IRON_INGOT,
     ITEM_RAW_GOLD, ITEM_GOLD_INGOT, ITEM_DIAMOND, ITEM_EMERALD,
-    ITEM_REDSTONE, ITEM_FEATHER, ITEM_BONE, ITEM_STRING,
+    ITEM_REDSTONE, ITEM_LAPIS,
     ITEM_WOOD_SWORD, ITEM_WOOD_PICKAXE, ITEM_WOOD_AXE, ITEM_WOOD_SHOVEL, ITEM_WOOD_HOE,
-    ITEM_STONE_SWORD, ITEM_STONE_PICKAXE, ITEM_STONE_AXE, ITEM_STONE_SHOVEL, ITEM_STONE_HOE,
+    ITEM_STONE_SWORD,ITEM_STONE_PICKAXE,ITEM_STONE_AXE,ITEM_STONE_SHOVEL,ITEM_STONE_HOE,
     ITEM_IRON_SWORD, ITEM_IRON_PICKAXE, ITEM_IRON_AXE, ITEM_IRON_SHOVEL, ITEM_IRON_HOE,
     ITEM_GOLD_SWORD, ITEM_GOLD_PICKAXE, ITEM_GOLD_AXE, ITEM_GOLD_SHOVEL, ITEM_GOLD_HOE,
-    ITEM_DIAMOND_SWORD, ITEM_DIAMOND_PICKAXE, ITEM_DIAMOND_AXE, ITEM_DIAMOND_SHOVEL, ITEM_DIAMOND_HOE,
+    ITEM_DIAMOND_SWORD,ITEM_DIAMOND_PICKAXE,ITEM_DIAMOND_AXE,ITEM_DIAMOND_SHOVEL,ITEM_DIAMOND_HOE,
     ITEM_BUCKET, ITEM_WATER_BUCKET, ITEM_LAVA_BUCKET,
     ITEM_BREAD, ITEM_APPLE, ITEM_COOKED_BEEF, ITEM_RAW_BEEF,
-    ITEM_SEEDS, ITEM_WHEAT,
-    ITEM_BOOK, ITEM_PAPER, ITEM_LEATHER,
-    ITEM_FLINT, ITEM_FLINT_STEEL,
+    ITEM_SEEDS, ITEM_WHEAT_ITEM,
+    ITEM_BOOK, ITEM_PAPER, ITEM_LEATHER, ITEM_FLINT, ITEM_FLINT_STEEL,
     ITEM_COMPASS, ITEM_CLOCK,
-    ITEM_ARMOR_HELM_IRON, ITEM_ARMOR_CHEST_IRON, ITEM_ARMOR_LEGS_IRON, ITEM_ARMOR_BOOTS_IRON,
+    ITEM_HELM_IRON,ITEM_CHEST_IRON,ITEM_LEGS_IRON,ITEM_BOOTS_IRON,
     ITEM_SNOWBALL, ITEM_BOW, ITEM_ARROW,
     ITEM_COUNT
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Blok tanımları
-// ─────────────────────────────────────────────────────────────────────────────
 struct BlockDef {
     const char* name;
-    bool  solid, transparent, fluid;
-    float hardness, resistance;
+    bool   solid, transparent, fluid, gravity, climbable, emitter;
+    float  hardness, resistance;
     uint8_t toolType, toolLevel;
     uint8_t texTop, texSide, texBottom;
-    uint8_t lightEmit, lightFilter;
-    bool  gravity, climbable;
+    uint8_t lightEmit, lightAbsorb;
+    float  friction;
+    uint8_t dropId;
 };
 
-static const BlockDef BLOCK_DEFS[BLOCK_COUNT] = {
-    {"air",           false,true, false,0.0f,  0.0f,  0,0, 0, 0, 0, 0,15,false,false},
-    {"grass",         true, false,false,0.6f,  0.6f,  1,0, 1, 2, 3, 0, 0,false,false},
-    {"dirt",          true, false,false,0.5f,  0.5f,  1,0, 3, 3, 3, 0, 0,false,false},
-    {"stone",         true, false,false,1.5f,  6.0f,  2,1, 4, 4, 4, 0, 0,false,false},
-    {"cobblestone",   true, false,false,2.0f,  6.0f,  2,1, 5, 5, 5, 0, 0,false,false},
-    {"sand",          true, false,false,0.5f,  0.5f,  1,0, 6, 6, 6, 0, 0,true, false},
-    {"gravel",        true, false,false,0.6f,  0.6f,  1,0, 7, 7, 7, 0, 0,true, false},
-    {"oak_log",       true, false,false,2.0f,  2.0f,  3,0, 8, 9, 8, 0, 0,false,false},
-    {"oak_leaves",    true, true, false,0.2f,  0.2f,  1,0,10,10,10, 0, 1,false,false},
-    {"oak_planks",    true, false,false,2.0f,  3.0f,  3,0,11,11,11, 0, 0,false,false},
-    {"coal_ore",      true, false,false,3.0f,  3.0f,  2,1,12,12,12, 0, 0,false,false},
-    {"iron_ore",      true, false,false,3.0f,  3.0f,  2,2,13,13,13, 0, 0,false,false},
-    {"gold_ore",      true, false,false,3.0f,  3.0f,  2,3,14,14,14, 0, 0,false,false},
-    {"diamond_ore",   true, false,false,3.0f,  3.0f,  2,3,15,15,15, 0, 0,false,false},
-    {"emerald_ore",   true, false,false,3.0f,  3.0f,  2,3,16,16,16, 0, 0,false,false},
-    {"redstone_ore",  true, false,false,3.0f,  3.0f,  2,2,17,17,17, 0, 0,false,false},
-    {"coal_block",    true, false,false,5.0f,  6.0f,  2,1,18,18,18, 0, 0,false,false},
-    {"iron_block",    true, false,false,5.0f, 10.0f,  2,2,19,19,19, 0, 0,false,false},
-    {"gold_block",    true, false,false,3.0f, 10.0f,  2,3,20,20,20, 0, 0,false,false},
-    {"diamond_block", true, false,false,5.0f, 10.0f,  2,3,21,21,21, 0, 0,false,false},
-    {"water",         false,true, true, 100.f, 100.f, 0,0,22,22,22, 0, 2,false,false},
-    {"lava",          false,true, true, 100.f, 100.f, 0,0,23,23,23,15, 2,false,false},
-    {"glass",         true, true, false,0.3f,  1.5f,  1,0,24,24,24, 0, 0,false,false},
-    {"glowstone",     true, true, false,0.3f,  1.5f,  1,0,25,25,25,15, 0,false,false},
-    {"netherrack",    true, false,false,0.4f,  0.4f,  2,1,26,26,26, 0, 0,false,false},
-    {"crafting_table",true, false,false,2.5f,  2.5f,  3,0,27,28,11, 0, 0,false,false},
-    {"furnace",       true, false,false,3.5f,  3.5f,  2,1,29,30,29, 0, 0,false,false},
-    {"chest",         true, false,false,2.5f,  2.5f,  3,0,31,31,31, 0, 0,false,false},
-    {"ladder",        false,true, false,0.4f,  0.4f,  3,0,32,32,32, 0, 0,false,true },
-    {"torch",         false,true, false,0.0f,  0.0f,  0,0,33,33,33,14, 0,false,false},
-    {"door_bottom",   false,false,false,3.0f,  3.0f,  3,0,34,34,34, 0, 0,false,false},
-    {"door_top",      false,false,false,3.0f,  3.0f,  3,0,35,35,35, 0, 0,false,false},
-    {"bedrock",       true, false,false,-1.f,3600.f,  0,0,36,36,36, 0, 0,false,false},
-    {"gravel2",       true, false,false,0.6f,  0.6f,  1,0, 7, 7, 7, 0, 0,true, false},
-    {"birch_log",     true, false,false,2.0f,  2.0f,  3,0,37,38,37, 0, 0,false,false},
-    {"birch_planks",  true, false,false,2.0f,  3.0f,  3,0,39,39,39, 0, 0,false,false},
-    {"birch_leaves",  true, true, false,0.2f,  0.2f,  1,0,40,40,40, 0, 1,false,false},
-    {"spruce_log",    true, false,false,2.0f,  2.0f,  3,0,41,42,41, 0, 0,false,false},
-    {"spruce_planks", true, false,false,2.0f,  3.0f,  3,0,43,43,43, 0, 0,false,false},
-    {"spruce_leaves", true, true, false,0.2f,  0.2f,  1,0,44,44,44, 0, 1,false,false},
-    {"snow",          true, false,false,0.2f,  0.2f,  1,0,45,45,45, 0, 0,false,false},
-    {"ice",           true, true, false,0.5f,  0.5f,  1,0,46,46,46, 0, 1,false,false},
-    {"clay",          true, false,false,0.6f,  0.6f,  1,0,47,47,47, 0, 0,false,false},
-    {"brick",         true, false,false,2.0f,  6.0f,  2,1,48,48,48, 0, 0,false,false},
-    {"stone_bricks",  true, false,false,1.5f,  6.0f,  2,1,49,49,49, 0, 0,false,false},
-    {"mossy_cobble",  true, false,false,2.0f,  6.0f,  2,1,50,50,50, 0, 0,false,false},
-    {"tnt",           true, false,false,0.0f,  0.0f,  1,0,51,52,51, 0, 0,false,false},
-    {"bookshelf",     true, false,false,1.5f,  1.5f,  3,0,11,53,11, 0, 0,false,false},
-    {"pumpkin",       true, false,false,1.0f,  1.0f,  1,0,54,55,54, 0, 0,false,false},
-    {"melon",         true, false,false,1.0f,  1.0f,  1,0,56,57,56, 0, 0,false,false},
-    {"wheat_0",       false,true, false,0.0f,  0.0f,  0,0,58,58,58, 0, 0,false,false},
-    {"wheat_1",       false,true, false,0.0f,  0.0f,  0,0,59,59,59, 0, 0,false,false},
-    {"wheat_2",       false,true, false,0.0f,  0.0f,  0,0,60,60,60, 0, 0,false,false},
-    {"wheat_3",       false,true, false,0.0f,  0.0f,  0,0,61,61,61, 0, 0,false,false},
-    {"wheat_4",       false,true, false,0.0f,  0.0f,  0,0,62,62,62, 0, 0,false,false},
-    {"wheat_5",       false,true, false,0.0f,  0.0f,  0,0,63,63,63, 0, 0,false,false},
-    {"wheat_6",       false,true, false,0.0f,  0.0f,  0,0,64,64,64, 0, 0,false,false},
-    {"wheat_7",       false,true, false,0.0f,  0.0f,  0,0,65,65,65, 0, 0,false,false},
+static constexpr BlockDef BLOCK_TABLE[BLOCK_COUNT] = {
+    {"air",           false,true, false,false,false,false, 0.f,  0.f,  0,0,  0, 0, 0,  0,0,  0.6f, AIR},
+    {"grass",         true, false,false,false,false,false, 0.6f, 0.6f, 1,0,  1, 2, 3,  0,0,  0.6f, DIRT},
+    {"dirt",          true, false,false,false,false,false, 0.5f, 0.5f, 1,0,  3, 3, 3,  0,0,  0.6f, DIRT},
+    {"stone",         true, false,false,false,false,false, 1.5f, 6.0f, 2,1,  4, 4, 4,  0,0,  0.6f, COBBLESTONE},
+    {"cobblestone",   true, false,false,false,false,false, 2.0f, 6.0f, 2,1,  5, 5, 5,  0,0,  0.6f, COBBLESTONE},
+    {"sand",          true, false,false,true, false,false, 0.5f, 0.5f, 1,0,  6, 6, 6,  0,0,  0.4f, SAND},
+    {"gravel",        true, false,false,true, false,false, 0.6f, 0.6f, 1,0,  7, 7, 7,  0,0,  0.4f, GRAVEL},
+    {"oak_log",       true, false,false,false,false,false, 2.0f, 2.0f, 3,0,  8, 9, 8,  0,0,  0.6f, OAK_LOG},
+    {"oak_leaves",    true, true, false,false,false,false, 0.2f, 0.2f, 1,0, 10,10,10,  0,1,  0.6f, AIR},
+    {"oak_planks",    true, false,false,false,false,false, 2.0f, 3.0f, 3,0, 11,11,11,  0,0,  0.6f, OAK_PLANKS},
+    {"birch_log",     true, false,false,false,false,false, 2.0f, 2.0f, 3,0, 12,13,12,  0,0,  0.6f, BIRCH_LOG},
+    {"birch_planks",  true, false,false,false,false,false, 2.0f, 3.0f, 3,0, 14,14,14,  0,0,  0.6f, BIRCH_PLANKS},
+    {"birch_leaves",  true, true, false,false,false,false, 0.2f, 0.2f, 1,0, 15,15,15,  0,1,  0.6f, AIR},
+    {"spruce_log",    true, false,false,false,false,false, 2.0f, 2.0f, 3,0, 16,17,16,  0,0,  0.6f, SPRUCE_LOG},
+    {"spruce_planks", true, false,false,false,false,false, 2.0f, 3.0f, 3,0, 18,18,18,  0,0,  0.6f, SPRUCE_PLANKS},
+    {"spruce_leaves", true, true, false,false,false,false, 0.2f, 0.2f, 1,0, 19,19,19,  0,1,  0.6f, AIR},
+    {"coal_ore",      true, false,false,false,false,false, 3.0f, 3.0f, 2,1, 20,20,20,  0,0,  0.6f, COAL_ORE},
+    {"iron_ore",      true, false,false,false,false,false, 3.0f, 3.0f, 2,2, 21,21,21,  0,0,  0.6f, IRON_ORE},
+    {"gold_ore",      true, false,false,false,false,false, 3.0f, 3.0f, 2,3, 22,22,22,  0,0,  0.6f, GOLD_ORE},
+    {"diamond_ore",   true, false,false,false,false,false, 3.0f, 3.0f, 2,3, 23,23,23,  0,0,  0.6f, DIAMOND_ORE},
+    {"emerald_ore",   true, false,false,false,false,false, 3.0f, 3.0f, 2,3, 24,24,24,  0,0,  0.6f, EMERALD_ORE},
+    {"redstone_ore",  true, false,false,false,false,false, 3.0f, 3.0f, 2,2, 25,25,25,  0,0,  0.6f, REDSTONE_ORE},
+    {"lapis_ore",     true, false,false,false,false,false, 3.0f, 3.0f, 2,2, 26,26,26,  0,0,  0.6f, LAPIS_ORE},
+    {"coal_block",    true, false,false,false,false,false, 5.0f, 6.0f, 2,1, 27,27,27,  0,0,  0.6f, COAL_BLOCK},
+    {"iron_block",    true, false,false,false,false,false, 5.0f,10.0f, 2,2, 28,28,28,  0,0,  0.6f, IRON_BLOCK},
+    {"gold_block",    true, false,false,false,false,false, 3.0f,10.0f, 2,3, 29,29,29,  0,0,  0.6f, GOLD_BLOCK},
+    {"diamond_block", true, false,false,false,false,false, 5.0f,10.0f, 2,3, 30,30,30,  0,0,  0.6f, DIAMOND_BLOCK},
+    {"water",         false,true, true, false,false,false,100.f,100.f, 0,0, 31,31,31,  0,2,  0.2f, AIR},
+    {"lava",          false,true, true, false,false,true, 100.f,100.f, 0,0, 32,32,32, 15,2,  0.2f, AIR},
+    {"glass",         true, true, false,false,false,false, 0.3f, 1.5f, 1,0, 33,33,33,  0,0,  0.6f, AIR},
+    {"glowstone",     true, true, false,false,false,true,  0.3f, 1.5f, 1,0, 34,34,34, 15,0,  0.6f, GLOWSTONE},
+    {"netherrack",    true, false,false,false,false,false, 0.4f, 0.4f, 2,1, 35,35,35,  0,0,  0.6f, NETHERRACK},
+    {"crafting_table",true, false,false,false,false,false, 2.5f, 2.5f, 3,0, 36,37,11,  0,0,  0.6f, CRAFTING_TABLE},
+    {"furnace",       true, false,false,false,false,false, 3.5f, 3.5f, 2,1, 38,39,38,  0,0,  0.6f, FURNACE},
+    {"chest",         true, false,false,false,false,false, 2.5f, 2.5f, 3,0, 40,40,40,  0,0,  0.6f, CHEST},
+    {"ladder",        false,true, false,false,true, false, 0.4f, 0.4f, 3,0, 41,41,41,  0,0,  0.6f, LADDER},
+    {"torch",         false,true, false,false,false,true,  0.0f, 0.0f, 0,0, 42,42,42, 14,0,  0.6f, TORCH},
+    {"bedrock",       true, false,false,false,false,false, -1.f,3600.f,0,0, 43,43,43,  0,0,  0.6f, BEDROCK},
+    {"snow_layer",    true, false,false,false,false,false, 0.2f, 0.2f, 1,0, 44,44,44,  0,0,  0.3f, SNOW_LAYER},
+    {"ice",           true, true, false,false,false,false, 0.5f, 0.5f, 1,0, 45,45,45,  0,1,  0.02f,AIR},
+    {"clay",          true, false,false,false,false,false, 0.6f, 0.6f, 1,0, 46,46,46,  0,0,  0.6f, CLAY},
+    {"brick",         true, false,false,false,false,false, 2.0f, 6.0f, 2,1, 47,47,47,  0,0,  0.6f, BRICK},
+    {"stone_bricks",  true, false,false,false,false,false, 1.5f, 6.0f, 2,1, 48,48,48,  0,0,  0.6f, STONE_BRICKS},
+    {"mossy_cobble",  true, false,false,false,false,false, 2.0f, 6.0f, 2,1, 49,49,49,  0,0,  0.6f, MOSSY_COBBLE},
+    {"tnt",           true, false,false,false,false,false, 0.0f, 0.0f, 1,0, 50,51,50,  0,0,  0.6f, TNT},
+    {"bookshelf",     true, false,false,false,false,false, 1.5f, 1.5f, 3,0, 11,52,11,  0,0,  0.6f, OAK_PLANKS},
+    {"pumpkin",       true, false,false,false,false,false, 1.0f, 1.0f, 1,0, 53,54,53,  0,0,  0.6f, PUMPKIN},
+    {"melon",         true, false,false,false,false,false, 1.0f, 1.0f, 1,0, 55,56,55,  0,0,  0.6f, MELON},
+    {"sandstone",     true, false,false,false,false,false, 0.8f, 4.0f, 2,1, 57,58,59,  0,0,  0.6f, SANDSTONE},
+    {"cactus",        true, true, false,false,false,false, 0.4f, 0.4f, 1,0, 60,61,62,  0,1,  0.6f, CACTUS},
+    {"sponge",        true, false,false,false,false,false, 0.6f, 0.6f, 1,0, 63,63,63,  0,0,  0.6f, SPONGE},
+    {"wheat_0",       false,true, false,false,false,false, 0.0f, 0.0f, 0,0, 64,64,64,  0,0,  0.6f, AIR},
+    {"wheat_1",       false,true, false,false,false,false, 0.0f, 0.0f, 0,0, 65,65,65,  0,0,  0.6f, AIR},
+    {"wheat_2",       false,true, false,false,false,false, 0.0f, 0.0f, 0,0, 66,66,66,  0,0,  0.6f, AIR},
+    {"wheat_3",       false,true, false,false,false,false, 0.0f, 0.0f, 0,0, 67,67,67,  0,0,  0.6f, AIR},
+    {"wheat_4",       false,true, false,false,false,false, 0.0f, 0.0f, 0,0, 68,68,68,  0,0,  0.6f, AIR},
+    {"wheat_5",       false,true, false,false,false,false, 0.0f, 0.0f, 0,0, 69,69,69,  0,0,  0.6f, AIR},
+    {"wheat_6",       false,true, false,false,false,false, 0.0f, 0.0f, 0,0, 70,70,70,  0,0,  0.6f, AIR},
+    {"wheat_7",       false,true, false,false,false,false, 0.0f, 0.0f, 0,0, 71,71,71,  0,0,  0.6f, ITEM_WHEAT_ITEM},
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Math yardımcıları
-// ─────────────────────────────────────────────────────────────────────────────
-struct Vec3  { float x,y,z; };
-struct Vec3i { int   x,y,z; };
-struct AABB  { float minX,minY,minZ,maxX,maxY,maxZ; };
+static inline const BlockDef& BD(uint8_t id){ return BLOCK_TABLE[id < BLOCK_COUNT ? id : 0]; }
+
+struct Vec2  { float x,y; };
+struct Vec3  { float x,y,z;
+    Vec3 operator+(const Vec3& o)const{ return {x+o.x,y+o.y,z+o.z}; }
+    Vec3 operator-(const Vec3& o)const{ return {x-o.x,y-o.y,z-o.z}; }
+    Vec3 operator*(float s)const{ return {x*s,y*s,z*s}; }
+    Vec3& operator+=(const Vec3& o){ x+=o.x;y+=o.y;z+=o.z; return *this; }
+    float dot(const Vec3& o)const{ return x*o.x+y*o.y+z*o.z; }
+    Vec3 cross(const Vec3& o)const{ return {y*o.z-z*o.y,z*o.x-x*o.z,x*o.y-y*o.x}; }
+    float len()const{ return sqrtf(x*x+y*y+z*z); }
+    Vec3 norm()const{ float l=len()+1e-8f; return {x/l,y/l,z/l}; }
+};
+struct Vec3i { int x,y,z;
+    bool operator==(const Vec3i& o)const{ return x==o.x&&y==o.y&&z==o.z; }
+};
+struct Vec4  { float x,y,z,w; };
+struct Mat4  { float m[16]={};
+    Mat4 operator*(const Mat4& o)const{
+        Mat4 r;
+        for(int i=0;i<4;i++) for(int j=0;j<4;j++) for(int k=0;k<4;k++)
+            r.m[i*4+j]+=m[i*4+k]*o.m[k*4+j];
+        return r;
+    }
+};
+struct AABB  { float x0,y0,z0,x1,y1,z1; };
+struct Plane { float a,b,c,d; };
+struct Frustum{ Plane planes[6]; };
 
 static inline float lerp(float a,float b,float t){ return a+(b-a)*t; }
-static inline float clamp(float v,float lo,float hi){ return v<lo?lo:(v>hi?hi:v); }
-static inline int   flr(float f){ return (int)floorf(f); }
+static inline float clampf(float v,float lo,float hi){ return v<lo?lo:(v>hi?hi:v); }
+static inline int   flr(float f){ return (int)std::floor(f); }
 
-static void mat4Mul(float* out,const float* a,const float* b){
-    float tmp[16]={};
-    for(int r=0;r<4;r++) for(int c=0;c<4;c++)
-        for(int k=0;k<4;k++) tmp[r*4+c]+=a[r*4+k]*b[k*4+c];
-    memcpy(out,tmp,64);
+static Mat4 matPerspective(float fov,float asp,float near_,float far_){
+    Mat4 m; float f=1.f/tanf(fov*.5f);
+    m.m[0]=f/asp; m.m[5]=f;
+    m.m[10]=(far_+near_)/(near_-far_); m.m[11]=-1.f;
+    m.m[14]=2.f*far_*near_/(near_-far_);
+    return m;
 }
-static void mat4Perspective(float* m,float fov,float asp,float near_,float far_){
-    memset(m,0,64);
-    float f=1.0f/tanf(fov*0.5f);
-    m[0]=f/asp; m[5]=f;
-    m[10]=(far_+near_)/(near_-far_); m[11]=-1;
-    m[14]=2*far_*near_/(near_-far_);
+static Mat4 matLookAt(Vec3 eye,Vec3 ctr,Vec3 up){
+    Vec3 f=(ctr-eye).norm();
+    Vec3 r=f.cross(up).norm();
+    Vec3 u=r.cross(f);
+    Mat4 m;
+    m.m[0]=r.x;  m.m[4]=r.y;  m.m[8] =r.z;  m.m[12]=-(r.x*eye.x+r.y*eye.y+r.z*eye.z);
+    m.m[1]=u.x;  m.m[5]=u.y;  m.m[9] =u.z;  m.m[13]=-(u.x*eye.x+u.y*eye.y+u.z*eye.z);
+    m.m[2]=-f.x; m.m[6]=-f.y; m.m[10]=-f.z; m.m[14]= (f.x*eye.x+f.y*eye.y+f.z*eye.z);
+    m.m[15]=1.f;
+    return m;
 }
-// FIX: Doğru LookAt – world-up (0,1,0), straight-up/down durumu korunuyor
-static void mat4LookAt(float* m,float ex,float ey,float ez,float tx,float ty,float tz){
-    float fx=tx-ex,fy=ty-ey,fz=tz-ez;
-    float fl=sqrtf(fx*fx+fy*fy+fz*fz)+1e-6f;
-    fx/=fl; fy/=fl; fz/=fl;
-    float ux=0,uy=1,uz=0;
-    if(fabsf(fy)>0.999f){ ux=0; uy=0; uz=1; }
-    float rx=fy*uz-fz*uy, ry=fz*ux-fx*uz, rz=fx*uy-fy*ux;
-    float rl=sqrtf(rx*rx+ry*ry+rz*rz)+1e-6f;
-    rx/=rl; ry/=rl; rz/=rl;
-    float vx=ry*fz-rz*fy, vy=rz*fx-rx*fz, vz=rx*fy-ry*fx;
-    m[0]=rx;  m[1]=vx;  m[2]=-fx; m[3]=0;
-    m[4]=ry;  m[5]=vy;  m[6]=-fy; m[7]=0;
-    m[8]=rz;  m[9]=vz;  m[10]=-fz;m[11]=0;
-    m[12]=-(rx*ex+ry*ey+rz*ez);
-    m[13]=-(vx*ex+vy*ey+vz*ez);
-    m[14]= (fx*ex+fy*ey+fz*ez);
-    m[15]=1;
+static Mat4 matOrtho(float l,float r,float b,float t,float n,float fa){
+    Mat4 m;
+    m.m[0]=2/(r-l); m.m[5]=2/(t-b); m.m[10]=-2/(fa-n);
+    m.m[12]=-(r+l)/(r-l); m.m[13]=-(t+b)/(t-b); m.m[14]=-(fa+n)/(fa-n); m.m[15]=1;
+    return m;
 }
-static void mat4Ortho(float* m,float l,float r,float b,float t,float n,float fa){
-    memset(m,0,64);
-    m[0]=2/(r-l); m[5]=2/(t-b); m[10]=-2/(fa-n);
-    m[12]=-(r+l)/(r-l); m[13]=-(t+b)/(t-b); m[14]=-(fa+n)/(fa-n); m[15]=1;
+static Mat4 matTranslate(float x,float y,float z){
+    Mat4 m; m.m[0]=m.m[5]=m.m[10]=m.m[15]=1;
+    m.m[12]=x; m.m[13]=y; m.m[14]=z; return m;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Perlin noise
-// ─────────────────────────────────────────────────────────────────────────────
+static Frustum buildFrustum(const Mat4& vp){
+    Frustum f;
+    auto& m=vp.m;
+    auto norm=[](Plane& p){ float l=sqrtf(p.a*p.a+p.b*p.b+p.c*p.c)+1e-8f; p.a/=l;p.b/=l;p.c/=l;p.d/=l; };
+    f.planes[0]={m[3]+m[0],m[7]+m[4],m[11]+m[8], m[15]+m[12]}; norm(f.planes[0]);
+    f.planes[1]={m[3]-m[0],m[7]-m[4],m[11]-m[8], m[15]-m[12]}; norm(f.planes[1]);
+    f.planes[2]={m[3]+m[1],m[7]+m[5],m[11]+m[9], m[15]+m[13]}; norm(f.planes[2]);
+    f.planes[3]={m[3]-m[1],m[7]-m[5],m[11]-m[9], m[15]-m[13]}; norm(f.planes[3]);
+    f.planes[4]={m[3]+m[2],m[7]+m[6],m[11]+m[10],m[15]+m[14]}; norm(f.planes[4]);
+    f.planes[5]={m[3]-m[2],m[7]-m[6],m[11]-m[10],m[15]-m[14]}; norm(f.planes[5]);
+    return f;
+}
+static bool aabbInFrustum(const Frustum& fr,float x,float y,float z,float sz){
+    for(auto& p:fr.planes){
+        float d=p.a*(p.a>0?x+sz:x)+p.b*(p.b>0?y+sz:y)+p.c*(p.c>0?z+sz:z)+p.d;
+        if(d<0) return false;
+    }
+    return true;
+}
+
 struct Noise {
     int perm[512];
     explicit Noise(uint64_t seed){
@@ -213,34 +257,53 @@ struct Noise {
     }
     float fade(float t){ return t*t*t*(t*(t*6-15)+10); }
     float grad(int h,float x,float y,float z){
-        int hh=h&15;
-        float u=hh<8?x:y, v=hh<4?y:(hh==12||hh==14?x:z);
+        int hh=h&15; float u=hh<8?x:y,v=hh<4?y:(hh==12||hh==14?x:z);
         return ((hh&1)?-u:u)+((hh&2)?-v:v);
     }
-    float noise(float x,float y,float z){
+    float at(float x,float y,float z){
         int X=flr(x)&255,Y=flr(y)&255,Z=flr(z)&255;
-        x-=floorf(x); y-=floorf(y); z-=floorf(z);
+        x-=std::floor(x); y-=std::floor(y); z-=std::floor(z);
         float u=fade(x),v=fade(y),w=fade(z);
-        int A=perm[X]+Y,AA=perm[A]+Z,AB=perm[A+1]+Z;
-        int B=perm[X+1]+Y,BA=perm[B]+Z,BB=perm[B+1]+Z;
+        int A=perm[X]+Y,AA=perm[A]+Z,AB=perm[A+1]+Z,B=perm[X+1]+Y,BA=perm[B]+Z,BB=perm[B+1]+Z;
         return lerp(lerp(lerp(grad(perm[AA],x,y,z),grad(perm[BA],x-1,y,z),u),
                          lerp(grad(perm[AB],x,y-1,z),grad(perm[BB],x-1,y-1,z),u),v),
                     lerp(lerp(grad(perm[AA+1],x,y,z-1),grad(perm[BA+1],x-1,y,z-1),u),
                          lerp(grad(perm[AB+1],x,y-1,z-1),grad(perm[BB+1],x-1,y-1,z-1),u),v),w);
     }
-    float octave(float x,float y,float z,int octs,float per){
-        float val=0,amp=1,freq=1,mx=0;
-        for(int i=0;i<octs;i++){
-            val+=noise(x*freq,y*freq,z*freq)*amp;
-            mx+=amp; amp*=per; freq*=2;
-        }
-        return val/mx;
+    float fbm(float x,float y,float z,int oct,float per){
+        float v=0,a=1,f=1,mx=0;
+        for(int i=0;i<oct;i++){ v+=at(x*f,y*f,z*f)*a; mx+=a; a*=per; f*=2.f; }
+        return v/mx;
     }
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Envanter
-// ─────────────────────────────────────────────────────────────────────────────
+class ThreadPool {
+    std::vector<std::thread>          workers;
+    std::queue<std::function<void()>> tasks;
+    std::mutex                        mtx;
+    std::condition_variable           cv;
+    std::atomic<bool>                 stopping{false};
+    std::atomic<int>                  pending{0};
+public:
+    explicit ThreadPool(int n){
+        for(int i=0;i<n;i++) workers.emplace_back([this]{
+            while(true){
+                std::function<void()> task;
+                { std::unique_lock lk(mtx);
+                  cv.wait(lk,[this]{ return stopping||!tasks.empty(); });
+                  if(stopping&&tasks.empty()) return;
+                  task=std::move(tasks.front()); tasks.pop(); }
+                task(); pending--;
+            }
+        });
+    }
+    ~ThreadPool(){ stopping=true; cv.notify_all(); for(auto& w:workers) w.join(); }
+    template<typename F>
+    void enqueue(F&& f){ pending++;
+        { std::lock_guard lk(mtx); tasks.emplace(std::forward<F>(f)); } cv.notify_one(); }
+    int pendingCount(){ return pending.load(); }
+};
+
 struct ItemStack {
     uint16_t id; uint8_t count; uint16_t damage;
     ItemStack():id(0),count(0),damage(0){}
@@ -249,1134 +312,1376 @@ struct ItemStack {
 };
 
 struct Inventory {
-    ItemStack slots[INV];
-    int       selected;
-    Inventory():selected(0){}
-    bool addItem(uint16_t id,int count){
-        for(int i=0;i<INV&&count>0;i++)
-            if(slots[i].id==id&&slots[i].count<MXST){
-                int a=std::min(count,(int)(MXST-slots[i].count)); slots[i].count+=a; count-=a; }
-        for(int i=0;i<INV&&count>0;i++)
-            if(slots[i].empty()){ int a=std::min(count,MXST); slots[i]=ItemStack(id,a); count-=a; }
-        return count==0;
+    ItemStack slots[INV_SIZE];
+    int selected=0;
+    bool add(uint16_t id,int cnt){
+        for(int i=0;i<INV_SIZE&&cnt>0;i++)
+            if(slots[i].id==id&&slots[i].count<MAX_STACK){
+                int a=std::min(cnt,(int)(MAX_STACK-slots[i].count)); slots[i].count+=a; cnt-=a; }
+        for(int i=0;i<INV_SIZE&&cnt>0;i++)
+            if(slots[i].empty()){ int a=std::min(cnt,MAX_STACK); slots[i]=ItemStack(id,a); cnt-=a; }
+        return cnt==0;
     }
-    ItemStack& active(){ return slots[selected%HB]; }
+    ItemStack& active(){ return slots[selected%HOTBAR_SZ]; }
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Craftleme tarifleri
-// ─────────────────────────────────────────────────────────────────────────────
 struct CraftRecipe {
-    uint16_t pattern[9];
-    uint8_t  width,height;
-    uint16_t resultId;
-    uint8_t  resultCount;
-    bool     shaped;
+    uint16_t grid[9]; uint8_t w,h; uint16_t outId; uint8_t outCnt; bool shaped;
 };
 
-static std::vector<CraftRecipe> RECIPES;
+static std::vector<CraftRecipe> sRecipes;
 
-static void initRecipes(){
-    auto shaped=[](uint16_t r0,uint16_t r1,uint16_t r2,
-                   uint16_t r3,uint16_t r4,uint16_t r5,
-                   uint16_t r6,uint16_t r7,uint16_t r8,
-                   uint8_t w,uint8_t h,uint16_t rid,uint8_t rc)->CraftRecipe{
-        CraftRecipe r; r.shaped=true; r.width=w; r.height=h;
-        r.pattern[0]=r0;r.pattern[1]=r1;r.pattern[2]=r2;
-        r.pattern[3]=r3;r.pattern[4]=r4;r.pattern[5]=r5;
-        r.pattern[6]=r6;r.pattern[7]=r7;r.pattern[8]=r8;
-        r.resultId=rid; r.resultCount=rc; return r;
+static void buildRecipes(){
+    auto S=[](uint16_t g0,uint16_t g1,uint16_t g2,uint16_t g3,uint16_t g4,uint16_t g5,
+              uint16_t g6,uint16_t g7,uint16_t g8,uint8_t w,uint8_t h,uint16_t o,uint8_t oc)->CraftRecipe{
+        return {{g0,g1,g2,g3,g4,g5,g6,g7,g8},w,h,o,oc,true};
     };
-    uint16_t P=OAK_PLANKS,S=ITEM_STICK,C=COBBLESTONE,I=ITEM_IRON_INGOT,
-             G2=ITEM_GOLD_INGOT,D=ITEM_DIAMOND;
-    RECIPES.push_back(shaped(OAK_LOG,0,0,0,0,0,0,0,0,1,1,OAK_PLANKS,4));
-    RECIPES.push_back(shaped(P,P,0,P,P,0,0,0,0,2,2,CRAFTING_TABLE,1));
-    RECIPES.push_back(shaped(P,0,0,P,0,0,0,0,0,1,2,ITEM_STICK,4));
-    RECIPES.push_back(shaped(P,P,0,0,S,0,0,S,0,2,3,ITEM_WOOD_SWORD,1));
-    RECIPES.push_back(shaped(P,P,P,0,S,0,0,S,0,3,3,ITEM_WOOD_PICKAXE,1));
-    RECIPES.push_back(shaped(P,P,0,P,S,0,0,S,0,2,3,ITEM_WOOD_AXE,1));
-    RECIPES.push_back(shaped(P,0,0,S,0,0,S,0,0,1,3,ITEM_WOOD_SHOVEL,1));
-    RECIPES.push_back(shaped(C,C,0,0,S,0,0,S,0,2,3,ITEM_STONE_SWORD,1));
-    RECIPES.push_back(shaped(C,C,C,0,S,0,0,S,0,3,3,ITEM_STONE_PICKAXE,1));
-    RECIPES.push_back(shaped(C,C,0,C,S,0,0,S,0,2,3,ITEM_STONE_AXE,1));
-    RECIPES.push_back(shaped(C,0,0,S,0,0,S,0,0,1,3,ITEM_STONE_SHOVEL,1));
-    RECIPES.push_back(shaped(I,I,0,0,S,0,0,S,0,2,3,ITEM_IRON_SWORD,1));
-    RECIPES.push_back(shaped(I,I,I,0,S,0,0,S,0,3,3,ITEM_IRON_PICKAXE,1));
-    RECIPES.push_back(shaped(I,I,0,I,S,0,0,S,0,2,3,ITEM_IRON_AXE,1));
-    RECIPES.push_back(shaped(I,0,0,S,0,0,S,0,0,1,3,ITEM_IRON_SHOVEL,1));
-    RECIPES.push_back(shaped(G2,G2,0,0,S,0,0,S,0,2,3,ITEM_GOLD_SWORD,1));
-    RECIPES.push_back(shaped(G2,G2,G2,0,S,0,0,S,0,3,3,ITEM_GOLD_PICKAXE,1));
-    RECIPES.push_back(shaped(D,D,0,0,S,0,0,S,0,2,3,ITEM_DIAMOND_SWORD,1));
-    RECIPES.push_back(shaped(D,D,D,0,S,0,0,S,0,3,3,ITEM_DIAMOND_PICKAXE,1));
-    RECIPES.push_back(shaped(0,I,0,I,0,I,0,I,0,3,3,ITEM_BUCKET,1));
-    RECIPES.push_back(shaped(I,I,I,I,0,I,I,I,I,3,3,ITEM_ARMOR_CHEST_IRON,1));
-    RECIPES.push_back(shaped(I,I,I,I,0,I,0,0,0,3,2,ITEM_ARMOR_HELM_IRON,1));
-    RECIPES.push_back(shaped(I,0,I,I,I,I,I,I,I,3,3,ITEM_ARMOR_LEGS_IRON,1));
-    RECIPES.push_back(shaped(0,0,0,I,0,I,I,0,I,3,2,ITEM_ARMOR_BOOTS_IRON,1));
+    uint16_t P=OAK_PLANKS,St=ITEM_STICK,C=COBBLESTONE,I=ITEM_IRON_INGOT,D=ITEM_DIAMOND,G=ITEM_GOLD_INGOT;
+    sRecipes.push_back(S(OAK_LOG,0,0,0,0,0,0,0,0,1,1,OAK_PLANKS,4));
+    sRecipes.push_back(S(BIRCH_LOG,0,0,0,0,0,0,0,0,1,1,BIRCH_PLANKS,4));
+    sRecipes.push_back(S(SPRUCE_LOG,0,0,0,0,0,0,0,0,1,1,SPRUCE_PLANKS,4));
+    sRecipes.push_back(S(P,0,0,P,0,0,0,0,0,1,2,ITEM_STICK,4));
+    sRecipes.push_back(S(P,P,0,P,P,0,0,0,0,2,2,CRAFTING_TABLE,1));
+    sRecipes.push_back(S(P,P,0,0,St,0,0,St,0,2,3,ITEM_WOOD_SWORD,1));
+    sRecipes.push_back(S(P,P,P,0,St,0,0,St,0,3,3,ITEM_WOOD_PICKAXE,1));
+    sRecipes.push_back(S(P,P,0,P,St,0,0,St,0,2,3,ITEM_WOOD_AXE,1));
+    sRecipes.push_back(S(P,0,0,St,0,0,St,0,0,1,3,ITEM_WOOD_SHOVEL,1));
+    sRecipes.push_back(S(C,C,0,0,St,0,0,St,0,2,3,ITEM_STONE_SWORD,1));
+    sRecipes.push_back(S(C,C,C,0,St,0,0,St,0,3,3,ITEM_STONE_PICKAXE,1));
+    sRecipes.push_back(S(I,I,0,0,St,0,0,St,0,2,3,ITEM_IRON_SWORD,1));
+    sRecipes.push_back(S(I,I,I,0,St,0,0,St,0,3,3,ITEM_IRON_PICKAXE,1));
+    sRecipes.push_back(S(D,D,0,0,St,0,0,St,0,2,3,ITEM_DIAMOND_SWORD,1));
+    sRecipes.push_back(S(D,D,D,0,St,0,0,St,0,3,3,ITEM_DIAMOND_PICKAXE,1));
+    sRecipes.push_back(S(G,G,0,0,St,0,0,St,0,2,3,ITEM_GOLD_SWORD,1));
+    sRecipes.push_back(S(0,I,0,I,0,I,0,I,0,3,3,ITEM_BUCKET,1));
+    sRecipes.push_back(S(I,I,I,I,0,I,I,I,I,3,3,ITEM_CHEST_IRON,1));
+    sRecipes.push_back(S(I,I,I,I,0,I,0,0,0,3,2,ITEM_HELM_IRON,1));
 }
 
-static uint16_t tryMatchRecipe(ItemStack grid[9]){
-    for(const auto& rec:RECIPES){
+static uint16_t matchRecipe(ItemStack grid[9]){
+    for(auto& rec:sRecipes){
         if(rec.shaped){
-            for(int oy=0;oy<=(int)(3-rec.height);oy++)
-                for(int ox=0;ox<=(int)(3-rec.width);ox++){
-                    bool match=true;
-                    for(int gy=0;gy<3&&match;gy++)
-                        for(int gx=0;gx<3&&match;gx++){
-                            int pi=(gy-oy)*rec.width+(gx-ox);
-                            uint16_t need=(gy>=oy&&gy<oy+rec.height&&gx>=ox&&gx<ox+rec.width)?rec.pattern[pi]:0;
-                            if(need!=grid[gy*3+gx].id) match=false;
-                        }
-                    if(match) return rec.resultId;
+            for(int oy=0;oy<=(int)(3-rec.h);oy++) for(int ox=0;ox<=(int)(3-rec.w);ox++){
+                bool ok=true;
+                for(int gy=0;gy<3&&ok;gy++) for(int gx=0;gx<3&&ok;gx++){
+                    int pi=(gy-oy)*rec.w+(gx-ox);
+                    uint16_t need=(gy>=oy&&gy<oy+(int)rec.h&&gx>=ox&&gx<ox+(int)rec.w)?rec.grid[pi]:0;
+                    if(need!=grid[gy*3+gx].id) ok=false;
                 }
-        } else {
-            std::vector<uint16_t> needs,haves;
-            for(int i=0;i<9;i++){
-                if(rec.pattern[i]) needs.push_back(rec.pattern[i]);
-                if(grid[i].id)     haves.push_back(grid[i].id);
+                if(ok) return rec.outId;
             }
-            std::sort(needs.begin(),needs.end());
-            std::sort(haves.begin(),haves.end());
-            if(needs==haves) return rec.resultId;
         }
     }
     return 0;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Chunk
-// ─────────────────────────────────────────────────────────────────────────────
-struct Chunk {
-    int     cx,cz;
-    uint8_t blocks[CS][WH][CS];
-    uint8_t light [CS][WH][CS];
-    uint8_t biome [CS][CS];
-    bool    generated, meshDirty;
-    uint32_t vao,vbo,ebo, transVao,transVbo,transEbo;
-    int      indexCount, transIndexCount;
-    std::vector<float>    vertices,    transVertices;
-    std::vector<uint32_t> indices,     transIndices;
+struct LightNode { uint8_t x,y; uint16_t z_level; };
 
-    Chunk():cx(0),cz(0),generated(false),meshDirty(true),
-            vao(0),vbo(0),ebo(0),transVao(0),transVbo(0),transEbo(0),
-            indexCount(0),transIndexCount(0){
-        memset(blocks,0,sizeof(blocks));
-        memset(light, 0,sizeof(light));
-        memset(biome, 0,sizeof(biome));
-    }
+struct Chunk {
+    int cx,cz;
+    std::array<uint8_t,CS*WH*CS> blocks;
+    std::array<uint8_t,CS*WH*CS> skyLight;
+    std::array<uint8_t,CS*WH*CS> blockLight;
+    std::array<uint8_t,CS*CS>    biome;
+    std::array<int,CS*CS>        heightMap;
+
+    std::atomic<bool> generated{false};
+    std::atomic<bool> meshDirty{true};
+    std::atomic<bool> meshBuilding{false};
+    std::atomic<bool> lightDirty{true};
+
+    GLuint vao=0,vbo=0,ebo=0;
+    GLuint tVao=0,tVbo=0,tEbo=0;
+    std::atomic<int> indexCount{0};
+    std::atomic<int> tIndexCount{0};
+
+    std::vector<float>    pendingVerts,    pendingTVerts;
+    std::vector<uint32_t> pendingIdx,      pendingTIdx;
+    std::mutex            meshMutex;
+    bool                  meshReady=false;
+
+    Chunk(int x,int z):cx(x),cz(z){ blocks.fill(0); skyLight.fill(15); blockLight.fill(0); biome.fill(0); heightMap.fill(0); }
+
+    inline int idx(int x,int y,int z)const{ return x*WH*CS+y*CS+z; }
+
     uint8_t get(int x,int y,int z)const{
         if(x<0||x>=CS||y<0||y>=WH||z<0||z>=CS) return AIR;
-        return blocks[x][y][z];
+        return blocks[idx(x,y,z)];
     }
     void set(int x,int y,int z,uint8_t b){
         if(x<0||x>=CS||y<0||y>=WH||z<0||z>=CS) return;
-        blocks[x][y][z]=b; meshDirty=true;
+        blocks[idx(x,y,z)]=b; meshDirty=true;
+        if(y>heightMap[x*CS+z]) heightMap[x*CS+z]=y;
     }
-    uint8_t getLight(int x,int y,int z)const{
+    uint8_t sl(int x,int y,int z)const{
         if(x<0||x>=CS||y<0||y>=WH||z<0||z>=CS) return 15;
-        return light[x][y][z];
+        return skyLight[idx(x,y,z)];
+    }
+    uint8_t bl(int x,int y,int z)const{
+        if(x<0||x>=CS||y<0||y>=WH||z<0||z>=CS) return 0;
+        return blockLight[idx(x,y,z)];
     }
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Dünya Üretici
-// ─────────────────────────────────────────────────────────────────────────────
-struct WorldGen {
-    Noise hNoise,cNoise,biNoise,caveNoise,treeNoise;
+struct PointLight { Vec3 pos; Vec3 color; float radius; };
+
+class World {
+public:
+    using ChunkPtr = std::shared_ptr<Chunk>;
+    std::unordered_map<uint64_t,ChunkPtr> chunks;
+    mutable std::shared_mutex             chunkMtx;
+
     uint64_t seed;
-    WorldGen(uint64_t s):hNoise(s),cNoise(s+1),biNoise(s+2),caveNoise(s+3),treeNoise(s+4),seed(s){}
+    std::unique_ptr<Noise> hNoise,cNoise,biNoise,caveNoise,treeNoise,humNoise;
 
-    enum Biome{ PLAINS=0,FOREST,DESERT,MOUNTAINS,OCEAN,TAIGA,JUNGLE };
+    int   tick=0;
+    float timeOfDay=6000.f;
+    bool  raining=false;
 
-    Biome getBiome(int wx,int wz){
-        float temp=biNoise.octave(wx*0.002f,0,wz*0.002f,3,0.5f);
-        float hum =biNoise.octave(wx*0.002f+100,0,wz*0.002f+100,3,0.5f);
-        if(temp<-0.3f)              return TAIGA;
-        if(temp>0.4f&&hum<-0.2f)   return DESERT;
-        if(temp>0.2f&&hum>0.3f)    return JUNGLE;
-        float h=hNoise.octave(wx*0.004f,0,wz*0.004f,6,0.5f);
-        if(h>0.5f)  return MOUNTAINS;
-        if(h<-0.3f) return OCEAN;
-        return hum>0.0f?FOREST:PLAINS;
+    std::vector<PointLight> pointLights;
+
+    explicit World(uint64_t s):seed(s){
+        hNoise   =std::make_unique<Noise>(s);
+        cNoise   =std::make_unique<Noise>(s+1);
+        biNoise  =std::make_unique<Noise>(s+2);
+        caveNoise=std::make_unique<Noise>(s+3);
+        treeNoise=std::make_unique<Noise>(s+4);
+        humNoise =std::make_unique<Noise>(s+5);
     }
 
-    int getSurface(int wx,int wz,Biome b){
-        float base=hNoise.octave(wx*0.003f,0,wz*0.003f,6,0.5f);
-        float cont=cNoise.octave(wx*0.001f,0,wz*0.001f,4,0.5f);
+    static uint64_t key(int cx,int cz){
+        return (uint64_t)(uint32_t)cx<<32|(uint64_t)(uint32_t)cz;
+    }
+
+    ChunkPtr getChunk(int cx,int cz) const {
+        auto k=key(cx,cz);
+        std::shared_lock lk(chunkMtx);
+        auto it=chunks.find(k);
+        return it!=chunks.end()?it->second:nullptr;
+    }
+
+    ChunkPtr getOrCreate(int cx,int cz){
+        auto k=key(cx,cz);
+        { std::shared_lock lk(chunkMtx);
+          auto it=chunks.find(k); if(it!=chunks.end()) return it->second; }
+        auto c=std::make_shared<Chunk>(cx,cz);
+        { std::unique_lock lk(chunkMtx); chunks[k]=c; }
+        return c;
+    }
+
+    enum Biome { PLAINS=0,FOREST,DESERT,MOUNTAINS,OCEAN,TAIGA,TUNDRA,JUNGLE };
+
+    Biome biomeAt(int wx,int wz){
+        float t=biNoise->fbm(wx*.0015f,0,wz*.0015f,3,.5f);
+        float h=humNoise->fbm(wx*.0015f+200,0,wz*.0015f+200,3,.5f);
+        float el=hNoise->fbm(wx*.003f,0,wz*.003f,6,.5f);
+        if(el>0.55f)  return MOUNTAINS;
+        if(el<-0.35f) return OCEAN;
+        if(t>0.45f&&h<-0.1f) return DESERT;
+        if(t<-0.4f&&h>0.1f)  return TAIGA;
+        if(t<-0.55f)          return TUNDRA;
+        if(t>0.3f&&h>0.3f)   return JUNGLE;
+        return h>0.05f?FOREST:PLAINS;
+    }
+
+    int surfaceAt(int wx,int wz,Biome b){
+        float base=hNoise->fbm(wx*.003f,0,wz*.003f,6,.5f);
+        float cont=cNoise->fbm(wx*.001f,0,wz*.001f,4,.5f);
         float h;
         switch(b){
-            case MOUNTAINS: h=64+(base*80+cont*40); break;
-            case OCEAN:     h=50+(base*15);          break;
-            case DESERT:    h=63+(base*10+cont*5);   break;
-            default:        h=64+(base*20+cont*10);  break;
+            case MOUNTAINS: h=72+(base*90+cont*40); break;
+            case OCEAN:     h=48+(base*16);          break;
+            case DESERT:    h=63+(base*12+cont*5);   break;
+            case TAIGA:
+            case TUNDRA:    h=62+(base*18+cont*8);   break;
+            default:        h=64+(base*22+cont*10);  break;
         }
-        return (int)clamp(h,1,200);
+        return (int)clampf(h,2,220);
     }
 
-    void generate(Chunk& c){
-        int baseX=c.cx*CS, baseZ=c.cz*CS;
+    void generateChunk(Chunk& c){
+        int bx=c.cx*CS,bz=c.cz*CS;
         for(int x=0;x<CS;x++) for(int z=0;z<CS;z++){
-            int wx=baseX+x, wz=baseZ+z;
-            Biome b=getBiome(wx,wz);
-            c.biome[x][z]=(uint8_t)b;
-            int surf=getSurface(wx,wz,b);
-            c.set(x,0,z,BEDROCK);
-            for(int y=1;y<4;y++) c.set(x,y,z,(y<(int)(seed%3+1))?BEDROCK:STONE);
-            for(int y=4;y<surf-3;y++) c.set(x,y,z,STONE);
-            for(int y=std::max(4,surf-3);y<surf;y++)
-                c.set(x,y,z,(b==DESERT||b==OCEAN)?SAND:DIRT);
-            if(surf>0){
-                if(b==DESERT)       c.set(x,surf,z,SAND);
-                else if(b==OCEAN&&surf<62) c.set(x,surf,z,SAND);
-                else                c.set(x,surf,z,(surf>63)?GRASS:DIRT);
+            int wx=bx+x,wz=bz+z;
+            Biome bio=(Biome)biomeAt(wx,wz);
+            c.biome[x*CS+z]=(uint8_t)bio;
+            int surf=surfaceAt(wx,wz,bio);
+            c.heightMap[x*CS+z]=surf;
+            c.blocks[c.idx(x,0,z)]=BEDROCK;
+            for(int y=1;y<4;y++) c.blocks[c.idx(x,y,z)]=BEDROCK;
+            for(int y=4;y<surf-3&&y<WH;y++){
+                float cv=caveNoise->fbm(wx*.04f,y*.04f,wz*.04f,3,.5f);
+                c.blocks[c.idx(x,y,z)]=(cv>0.18f)?AIR:STONE;
             }
-            for(int y=surf+1;y<62;y++) if(c.get(x,y,z)==AIR) c.set(x,y,z,WATER);
+            for(int y=std::max(4,surf-3);y<surf&&y<WH;y++)
+                c.blocks[c.idx(x,y,z)]=(bio==DESERT||bio==OCEAN)?SAND:DIRT;
+            if(surf>0&&surf<WH){
+                switch(bio){
+                    case DESERT: c.blocks[c.idx(x,surf,z)]=SAND;    break;
+                    case OCEAN:  c.blocks[c.idx(x,surf,z)]=(surf<60)?SAND:DIRT; break;
+                    case TUNDRA: c.blocks[c.idx(x,surf,z)]=SNOW_LAYER; break;
+                    default:     c.blocks[c.idx(x,surf,z)]=GRASS; break;
+                }
+            }
+            for(int y=surf+1;y<62&&y<WH;y++)
+                if(c.blocks[c.idx(x,y,z)]==AIR) c.blocks[c.idx(x,y,z)]=WATER;
+            if(bio==OCEAN&&surf<62){
+                for(int y=surf-2;y<=surf&&y<WH;y++) c.blocks[c.idx(x,y,z)]=CLAY;
+            }
         }
-        oreVein(c,COAL_ORE,   17,20,0,128);
-        oreVein(c,IRON_ORE,    9, 9,0, 64);
-        oreVein(c,GOLD_ORE,    9, 2,0, 32);
-        oreVein(c,DIAMOND_ORE, 8, 1,0, 16);
-        oreVein(c,EMERALD_ORE, 7, 1,0, 32);
-        oreVein(c,REDSTONE_ORE,8, 8,0, 16);
+        placeOres(c,COAL_ORE,   17,24,0,128);
+        placeOres(c,IRON_ORE,    9,10,0, 64);
+        placeOres(c,GOLD_ORE,    9, 4,0, 34);
+        placeOres(c,DIAMOND_ORE, 8, 2,0, 18);
+        placeOres(c,EMERALD_ORE, 7, 1,0, 32);
+        placeOres(c,REDSTONE_ORE,8, 8,0, 18);
+        placeOres(c,LAPIS_ORE,   7, 4,0, 32);
 
-        std::mt19937_64 rng(seed^((uint64_t)c.cx*73856093ULL^(uint64_t)c.cz*19349663ULL));
+        std::mt19937_64 rng(seed^((uint64_t)c.cx*0x9E3779B97F4A7C15ULL^(uint64_t)c.cz*0x6C62272E07BB0142ULL));
         for(int x=2;x<CS-2;x++) for(int z=2;z<CS-2;z++){
-            Biome b=(Biome)c.biome[x][z];
-            int surf=0;
-            for(int y=WH-1;y>=0;y--){ if(c.get(x,y,z)!=AIR){surf=y;break;} }
-            if(surf<63) continue;
-            float rnd=(float)(rng()%1000)/1000.0f;
-            if((b==FOREST&&rnd<0.05f)||(b==PLAINS&&rnd<0.01f)||
-               (b==JUNGLE&&rnd<0.08f)||(b==TAIGA&&rnd<0.04f))
-                placeTree(c,x,surf+1,z,(int)b,rng);
+            Biome bio=(Biome)c.biome[x*CS+z];
+            int surf=c.heightMap[x*CS+z];
+            if(surf<4||surf>=WH-8) continue;
+            float rnd=(float)(rng()%1000)/1000.f;
+            float treeDens= (bio==FOREST)?0.06f:(bio==JUNGLE)?0.10f:(bio==TAIGA)?0.05f:
+                            (bio==PLAINS)?0.012f:0.0f;
+            if(rnd<treeDens) placeTree(c,x,surf+1,z,(int)bio,rng);
+            if(bio==DESERT&&rnd<0.008f&&c.blocks[c.idx(x,surf+1,z)]==AIR)
+                for(int h=0;h<(int)(2+rng()%3)&&surf+1+h<WH;h++)
+                    c.blocks[c.idx(x,surf+1+h,z)]=CACTUS;
         }
+        propagateSkyLight(c);
         c.generated=true;
     }
 
-    void oreVein(Chunk& c,uint8_t ore,int sz,int count,int minY,int maxY){
+    void placeOres(Chunk& c,uint8_t ore,int sz,int count,int minY,int maxY){
         std::mt19937_64 rng(seed^((uint64_t)c.cx*12345+ore)^(uint64_t)c.cz*67891);
         for(int i=0;i<count;i++){
             int ox=(int)(rng()%CS),oy=minY+(int)(rng()%(maxY-minY+1)),oz=(int)(rng()%CS);
             for(int j=0;j<sz;j++){
-                int bx=ox+(int)(rng()%3-1),by=oy+(int)(rng()%3-1),bz=oz+(int)(rng()%3-1);
-                if(bx>=0&&bx<CS&&by>0&&by<WH&&bz>=0&&bz<CS&&c.get(bx,by,bz)==STONE)
-                    c.set(bx,by,bz,ore);
+                int bx=ox+(int)(rng()%3)-1,by=oy+(int)(rng()%3)-1,bz=oz+(int)(rng()%3)-1;
+                if(bx>=0&&bx<CS&&by>4&&by<WH&&bz>=0&&bz<CS&&c.blocks[c.idx(bx,by,bz)]==STONE)
+                    c.blocks[c.idx(bx,by,bz)]=ore;
             }
         }
     }
 
-    void placeTree(Chunk& c,int x,int y,int z,int biome,std::mt19937_64& rng){
-        int h=5+(int)(rng()%3);
+    void placeTree(Chunk& c,int x,int y,int z,int bio,std::mt19937_64& rng){
         uint8_t log=OAK_LOG,leaf=OAK_LEAVES;
-        if(biome==5){ log=SPRUCE_LOG; leaf=SPRUCE_LEAVES; h+=1; }
-        else if(biome==6){ log=BIRCH_LOG; leaf=BIRCH_LEAVES; h-=1; }
-        for(int i=0;i<h;i++) if(y+i<WH) c.set(x,y+i,z,log);
+        int h=5+(int)(rng()%3);
+        if(bio==4||bio==6){ log=SPRUCE_LOG; leaf=SPRUCE_LEAVES; h+=2; }
+        else if(bio==1)   { log=BIRCH_LOG;  leaf=BIRCH_LEAVES; }
+        for(int i=0;i<h&&y+i<WH;i++) c.blocks[c.idx(x,y+i,z)]=log;
         int lh=y+h;
         for(int dy=-2;dy<=1;dy++) for(int dx=-2;dx<=2;dx++) for(int dz=-2;dz<=2;dz++){
-            if(abs(dx)+abs(dz)+(dy==1?1:0)>2) continue;
+            if(std::abs(dx)+std::abs(dz)+(dy==1?1:0)>2) continue;
             int lx=x+dx,ly=lh+dy,lz=z+dz;
-            if(lx>=0&&lx<CS&&ly>=0&&ly<WH&&lz>=0&&lz<CS&&c.get(lx,ly,lz)==AIR)
-                c.set(lx,ly,lz,leaf);
+            if(lx>=0&&lx<CS&&ly>=0&&ly<WH&&lz>=0&&lz<CS&&c.blocks[c.idx(lx,ly,lz)]==AIR)
+                c.blocks[c.idx(lx,ly,lz)]=leaf;
         }
     }
-};
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Parçacık
-// ─────────────────────────────────────────────────────────────────────────────
-struct Particle {
-    float x,y,z,vx,vy,vz,r,g,b,a,life,maxLife,size;
-    bool active;
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Oyuncu
-// ─────────────────────────────────────────────────────────────────────────────
-struct Player {
-    float x,y,z,vx,vy,vz;
-    float cameraYaw,cameraPitch;
-    float health,maxHealth,hunger,maxHunger,saturation;
-    bool  onGround,inWater,inLava,sneaking,sprinting,flying;
-    bool  creative,survival,adventure,spectator;
-    float eyeHeight,fallDistance,foodExhaustion,cameraSensitivity;
-    int   hurtTimer,invulTimer,selectedSlot,deathTimer;
-    bool  dead;
-    float breakProgress;
-    Vec3i breakTarget;
-    bool  breaking;
-    Inventory inv;
-    int   respawnX,respawnY,respawnZ;
-
-    Player(){
-        x=0;y=80;z=0; vx=vy=vz=0;
-        cameraYaw=0; cameraPitch=0;
-        health=maxHealth=20; hunger=maxHunger=20; saturation=5;
-        onGround=false; inWater=false; inLava=false;
-        sneaking=false; sprinting=false; flying=false;
-        creative=false; survival=true; adventure=false; spectator=false;
-        eyeHeight=1.62f; fallDistance=0; foodExhaustion=0; cameraSensitivity=0.2f;
-        hurtTimer=0; invulTimer=0; selectedSlot=0; deathTimer=0; dead=false;
-        breakProgress=0; breakTarget={0,0,0}; breaking=false;
-        respawnX=0; respawnY=80; respawnZ=0;
-    }
-    AABB bounds()const{ return {x-0.3f,y,z-0.3f,x+0.3f,y+1.8f,z+0.3f}; }
-};
-
-struct ChatMessage { std::string text; float timer; uint32_t color; };
-struct RaycastResult { bool hit; Vec3i block,face; int faceIndex; float dist; };
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Dünya  ── recursive_mutex deadlock'u önler
-// ─────────────────────────────────────────────────────────────────────────────
-class World {
-public:
-    std::unordered_map<uint64_t,std::unique_ptr<Chunk>> chunks;
-    WorldGen gen;
-    uint64_t seed;
-    std::recursive_mutex chunkMutex;
-    int   tickCount;
-    float timeOfDay,dayLength;
-    bool  raining;
-
-    explicit World(uint64_t s):gen(s),seed(s),tickCount(0),
-        timeOfDay(6000),dayLength(24000),raining(false){}
-
-    static uint64_t chunkKey(int cx,int cz){
-        return ((uint64_t)(uint32_t)cx)<<32|(uint64_t)(uint32_t)cz;
+    void propagateSkyLight(Chunk& c){
+        c.skyLight.fill(0);
+        for(int x=0;x<CS;x++) for(int z=0;z<CS;z++){
+            int lv=15;
+            for(int y=WH-1;y>=0;y--){
+                uint8_t b=c.blocks[c.idx(x,y,z)];
+                lv=std::max(0,lv-BD(b).lightAbsorb);
+                c.skyLight[c.idx(x,y,z)]=(uint8_t)std::max((int)BD(b).lightEmit,lv);
+            }
+        }
+        for(int x=0;x<CS;x++) for(int y=0;y<WH;y++) for(int z=0;z<CS;z++){
+            uint8_t b=c.blocks[c.idx(x,y,z)];
+            if(BD(b).lightEmit>0) c.blockLight[c.idx(x,y,z)]=BD(b).lightEmit;
+        }
     }
 
-    Chunk* getChunk(int cx,int cz,bool generate=true){
-        uint64_t key=chunkKey(cx,cz);
-        { std::lock_guard<std::recursive_mutex> lk(chunkMutex);
-          auto it=chunks.find(key); if(it!=chunks.end()) return it->second.get(); }
-        if(!generate) return nullptr;
-        // Generate outside lock to avoid blocking render thread
-        auto c=std::make_unique<Chunk>(); c->cx=cx; c->cz=cz;
-        gen.generate(*c); propagateLight(*c);
-        { std::lock_guard<std::recursive_mutex> lk(chunkMutex);
-          auto it=chunks.find(key); if(it!=chunks.end()) return it->second.get();
-          Chunk* ptr=c.get(); chunks[key]=std::move(c); return ptr; }
-    }
-
-    // Lock zaten alınmışken kullan (mesh build, randomTick içi)
-    uint8_t getBlockNoLock(int wx,int wy,int wz)const{
-        if(wy<0)   return BEDROCK;
-        if(wy>=WH) return AIR;
-        int cx=flr((float)wx/CS),cz=flr((float)wz/CS);
-        int lx=((wx%CS)+CS)%CS,   lz=((wz%CS)+CS)%CS;
-        auto it=chunks.find(chunkKey(cx,cz));
-        if(it==chunks.end()) return AIR;
-        return it->second->blocks[lx][wy][lz];
-    }
-
-    uint8_t getBlock(int wx,int wy,int wz){
-        if(wy<0)   return BEDROCK;
-        if(wy>=WH) return AIR;
-        int cx=flr((float)wx/CS),cz=flr((float)wz/CS);
-        int lx=((wx%CS)+CS)%CS,   lz=((wz%CS)+CS)%CS;
-        Chunk* c=getChunk(cx,cz,false);
+    uint8_t blockAt(int wx,int wy,int wz)const{
+        if(wy<0)  return BEDROCK;
+        if(wy>=WH)return AIR;
+        int cx2=flr((float)wx/CS),cz2=flr((float)wz/CS);
+        int lx=((wx%CS)+CS)%CS,lz=((wz%CS)+CS)%CS;
+        auto c=getChunk(cx2,cz2);
         if(!c) return AIR;
-        return c->blocks[lx][wy][lz];
+        return c->blocks[c->idx(lx,wy,lz)];
+    }
+
+    uint8_t lightAt(int wx,int wy,int wz)const{
+        if(wy<0||wy>=WH) return 0;
+        int cx2=flr((float)wx/CS),cz2=flr((float)wz/CS);
+        int lx=((wx%CS)+CS)%CS,lz=((wz%CS)+CS)%CS;
+        auto c=getChunk(cx2,cz2);
+        if(!c) return 15;
+        int i=c->idx(lx,wy,lz);
+        return std::max(c->skyLight[i],c->blockLight[i]);
     }
 
     void setBlock(int wx,int wy,int wz,uint8_t b){
         if(wy<0||wy>=WH) return;
-        int cx=flr((float)wx/CS),cz=flr((float)wz/CS);
-        int lx=((wx%CS)+CS)%CS,   lz=((wz%CS)+CS)%CS;
-        std::lock_guard<std::recursive_mutex> lk(chunkMutex);
-        auto it=chunks.find(chunkKey(cx,cz)); if(it==chunks.end()) return;
-        it->second->set(lx,wy,lz,b);
-        propagateLightChunk(*it->second);
+        int cx2=flr((float)wx/CS),cz2=flr((float)wz/CS);
+        int lx=((wx%CS)+CS)%CS,lz=((wz%CS)+CS)%CS;
+        auto c=getChunk(cx2,cz2);
+        if(!c) return;
+        c->set(lx,wy,lz,b);
+        propagateSkyLight(*c);
         auto markDirty=[&](int ncx,int ncz){
-            auto ni=chunks.find(chunkKey(ncx,ncz));
-            if(ni!=chunks.end()) ni->second->meshDirty=true;
+            auto nc=getChunk(ncx,ncz); if(nc) nc->meshDirty=true;
         };
-        if(lx==0)    markDirty(cx-1,cz);
-        if(lx==CS-1) markDirty(cx+1,cz);
-        if(lz==0)    markDirty(cx,cz-1);
-        if(lz==CS-1) markDirty(cx,cz+1);
+        if(lx==0)    markDirty(cx2-1,cz2);
+        if(lx==CS-1) markDirty(cx2+1,cz2);
+        if(lz==0)    markDirty(cx2,cz2-1);
+        if(lz==CS-1) markDirty(cx2,cz2+1);
     }
 
-    void propagateLight(Chunk& c){
-        for(int x=0;x<CS;x++) for(int z=0;z<CS;z++){
-            int light=15;
-            for(int y=WH-1;y>=0;y--){
-                uint8_t b=c.blocks[x][y][z];
-                light=std::max(0,light-BLOCK_DEFS[b].lightFilter);
-                c.light[x][y][z]=BLOCK_DEFS[b].lightEmit?(uint8_t)15:(uint8_t)light;
-            }
-        }
-    }
-    void propagateLightChunk(Chunk& c){ propagateLight(c); }
+    struct RayHit { bool hit; Vec3i block,face; int faceIdx; float dist; };
 
-    void tick(Player& player,float dt){
-        tickCount++;
-        timeOfDay+=dt*20; if(timeOfDay>=dayLength) timeOfDay-=dayLength;
-        applyPhysics(player,dt);
-        updateGravityBlocks();
-        if(tickCount%20==0) randomTick();
-        if(tickCount%10==0) updateWater();
-    }
-
-    void applyPhysics(Player& player,float dt){
-        if(player.spectator){
-            player.x+=player.vx*dt; player.y+=player.vy*dt; player.z+=player.vz*dt; return;
-        }
-        if(!player.flying) player.vy+=G*dt;
-        else               player.vy*=0.91f;
-
-        player.inWater=(getBlock(flr(player.x),flr(player.y+1.0f),flr(player.z))==WATER);
-        player.inLava =(getBlock(flr(player.x),flr(player.y+0.5f),flr(player.z))==LAVA);
-        if(player.inWater){ player.vy=std::max(player.vy,-3.0f); player.vy+=0.02f; }
-        if(player.inLava)   player.vy=std::max(player.vy,-2.0f);
-
-        float nx=player.x+player.vx*dt, ny=player.y+player.vy*dt, nz=player.z+player.vz*dt;
-        // Y
-        if(collidesWorld({nx,ny,nz,nx+0.6f,ny+1.8f,nz+0.6f})){
-            if(player.vy<0){
-                player.onGround=true;
-                if(player.vy<-7.0f&&!player.inWater&&!player.flying&&!player.creative)
-                    player.health-=(-player.vy-7.0f)*1.0f;
-            }
-            player.vy=0; ny=player.y;
-        } else { player.onGround=false; }
-        // X
-        if(collidesWorld({nx,ny,nz,nx+0.6f,ny+1.8f,nz+0.6f})){ player.vx=0; nx=player.x; }
-        // Z
-        if(collidesWorld({nx,ny,nz,nx+0.6f,ny+1.8f,nz+0.6f})){ player.vz=0; nz=player.z; }
-        player.x=nx; player.y=ny; player.z=nz;
-        float fr=player.onGround?0.6f:(player.inWater?0.8f:0.91f);
-        player.vx*=fr; player.vz*=fr;
-
-        if(player.inLava&&!player.creative&&player.invulTimer<=0){
-            player.health-=4.0f*dt; player.invulTimer=10;
-        }
-        if(player.invulTimer>0) player.invulTimer--;
-        if(player.hurtTimer>0)  player.hurtTimer--;
-
-        if(!player.creative){
-            player.foodExhaustion+=dt*(player.sprinting?0.1f:0.01f);
-            if(player.foodExhaustion>=4.0f){
-                player.foodExhaustion=0;
-                if(player.saturation>0) player.saturation=std::max(0.0f,player.saturation-1.0f);
-                else if(player.hunger>0) player.hunger=std::max(0.0f,player.hunger-1.0f);
-            }
-            if(player.hunger>=18&&player.health<20) player.health=std::min(20.0f,player.health+0.5f*dt);
-            if(player.hunger<=0) player.health-=0.1f*dt;
-        }
-        if(player.health<=0&&!player.dead){ player.dead=true; player.deathTimer=100; }
-        if(player.dead){
-            player.deathTimer--;
-            if(player.deathTimer<=0){
-                player.x=(float)player.respawnX; player.y=(float)player.respawnY; player.z=(float)player.respawnZ;
-                player.health=20; player.hunger=20; player.dead=false;
-                player.vx=player.vy=player.vz=0;
-            }
-        }
-    }
-
-    bool collidesWorld(const AABB& box){
-        for(int x=flr(box.minX);x<=flr(box.maxX);x++)
-            for(int y=flr(box.minY);y<=flr(box.maxY);y++)
-                for(int z=flr(box.minZ);z<=flr(box.maxZ);z++){
-                    uint8_t b=getBlock(x,y,z);
-                    if(BLOCK_DEFS[b].solid&&!BLOCK_DEFS[b].fluid) return true;
-                }
-        return false;
-    }
-
-    // FIX: toSet listesi lock içinde derlenir, setBlock lock dışında çağrılır
-    void updateGravityBlocks(){
-        if(tickCount%2!=0) return;
-        std::vector<std::pair<Vec3i,uint8_t>> toFall;
-        { std::lock_guard<std::recursive_mutex> lk(chunkMutex);
-          for(auto&[key,chunk]:chunks)
-              for(int x=0;x<CS;x++) for(int y=1;y<WH;y++) for(int z=0;z<CS;z++){
-                  uint8_t b=chunk->blocks[x][y][z];
-                  if(!BLOCK_DEFS[b].gravity) continue;
-                  uint8_t below=chunk->blocks[x][y-1][z];
-                  if(below==AIR||BLOCK_DEFS[below].fluid)
-                      toFall.push_back({{chunk->cx*CS+x,y,chunk->cz*CS+z},b});
-              }
-        }
-        for(auto&[pos,b]:toFall){
-            setBlock(pos.x,pos.y,  pos.z,AIR);
-            setBlock(pos.x,pos.y-1,pos.z,b);
-        }
-    }
-
-    void randomTick(){
-        std::vector<std::pair<Vec3i,uint8_t>> toSet;
-        { std::lock_guard<std::recursive_mutex> lk(chunkMutex);
-          for(auto&[key,chunk]:chunks)
-              for(int t=0;t<3;t++){
-                  int x=rand()%CS,y=rand()%WH,z=rand()%CS;
-                  uint8_t b=chunk->blocks[x][y][z];
-                  int wx=chunk->cx*CS+x,wz=chunk->cz*CS+z;
-                  if(b==GRASS){ if(y+1<WH&&chunk->blocks[x][y+1][z]!=AIR) toSet.push_back({{wx,y,wz},DIRT}); }
-                  else if(b==DIRT){
-                      bool found=false;
-                      for(int dx=-1;dx<=1&&!found;dx++) for(int dz=-1;dz<=1&&!found;dz++)
-                          if(getBlockNoLock(wx+dx,y,wz+dz)==GRASS&&getBlockNoLock(wx,y+1,wz)==AIR) found=true;
-                      if(found) toSet.push_back({{wx,y,wz},GRASS});
-                  } else if(b>=WHEAT_0&&b<WHEAT_7){
-                      if(rand()%3==0) toSet.push_back({{wx,y,wz},(uint8_t)(b+1)});
-                  }
-              }
-        }
-        for(auto&[pos,b]:toSet) setBlock(pos.x,pos.y,pos.z,b);
-    }
-
-    void updateWater(){
-        std::vector<std::tuple<int,int,int,uint8_t>> toSet;
-        { std::lock_guard<std::recursive_mutex> lk(chunkMutex);
-          for(auto&[key,chunk]:chunks)
-              for(int x=0;x<CS;x++) for(int y=1;y<WH-1;y++) for(int z=0;z<CS;z++){
-                  if(chunk->blocks[x][y][z]!=WATER) continue;
-                  int wx=chunk->cx*CS+x,wz=chunk->cz*CS+z;
-                  if(getBlockNoLock(wx,y-1,wz)==AIR) toSet.push_back({wx,y-1,wz,WATER});
-                  if(getBlockNoLock(wx+1,y,wz)==AIR) toSet.push_back({wx+1,y,wz,WATER});
-                  if(getBlockNoLock(wx-1,y,wz)==AIR) toSet.push_back({wx-1,y,wz,WATER});
-                  if(getBlockNoLock(wx,y,wz+1)==AIR) toSet.push_back({wx,y,wz+1,WATER});
-                  if(getBlockNoLock(wx,y,wz-1)==AIR) toSet.push_back({wx,y,wz-1,WATER});
-              }
-        }
-        for(auto&[wx,wy,wz,b]:toSet) setBlock(wx,wy,wz,b);
-    }
-
-    RaycastResult raycast(float ox,float oy,float oz,float dx,float dy,float dz,float maxDist){
-        RaycastResult r{false,{0,0,0},{0,0,0},0,0};
-        float len=sqrtf(dx*dx+dy*dy+dz*dz); if(len<1e-5f) return r;
-        dx/=len; dy/=len; dz/=len;
-        float t=0,stepX=dx>0?1:-1,stepY=dy>0?1:-1,stepZ=dz>0?1:-1;
-        int ix=flr(ox),iy=flr(oy),iz=flr(oz);
-        float txD=fabsf(dx)<1e-5f?1e30f:1.0f/fabsf(dx);
-        float tyD=fabsf(dy)<1e-5f?1e30f:1.0f/fabsf(dy);
-        float tzD=fabsf(dz)<1e-5f?1e30f:1.0f/fabsf(dz);
-        float txM=((dx>0?(ix+1):ix)-ox)/fabsf(dx+1e-5f);
-        float tyM=((dy>0?(iy+1):iy)-oy)/fabsf(dy+1e-5f);
-        float tzM=((dz>0?(iz+1):iz)-oz)/fabsf(dz+1e-5f);
+    RayHit raycast(Vec3 origin,Vec3 dir,float maxD)const{
+        RayHit r{false};
+        float len=dir.len(); if(len<1e-6f) return r;
+        dir=dir.norm();
+        int ix=flr(origin.x),iy=flr(origin.y),iz=flr(origin.z);
+        float sX=dir.x>0?1.f:-1.f,sY=dir.y>0?1.f:-1.f,sZ=dir.z>0?1.f:-1.f;
+        float tDX=fabsf(dir.x)<1e-6f?1e30f:1.f/fabsf(dir.x);
+        float tDY=fabsf(dir.y)<1e-6f?1e30f:1.f/fabsf(dir.y);
+        float tDZ=fabsf(dir.z)<1e-6f?1e30f:1.f/fabsf(dir.z);
+        float tX=((dir.x>0?(ix+1):ix)-origin.x)/(dir.x+1e-8f);
+        float tY=((dir.y>0?(iy+1):iy)-origin.y)/(dir.y+1e-8f);
+        float tZ=((dir.z>0?(iz+1):iz)-origin.z)/(dir.z+1e-8f);
+        tX=fabsf(tX); tY=fabsf(tY); tZ=fabsf(tZ);
         Vec3i prev={ix,iy,iz};
-        for(int step=0;step<200&&t<=maxDist;step++){
-            uint8_t b=getBlock(ix,iy,iz);
-            if(b!=AIR&&BLOCK_DEFS[b].solid){
+        for(int step=0;step<300;step++){
+            float t=std::min({tX,tY,tZ});
+            if(t>maxD) break;
+            uint8_t b=blockAt(ix,iy,iz);
+            if(b!=AIR&&BD(b).solid){
                 r.hit=true; r.block={ix,iy,iz}; r.dist=t;
                 r.face={ix-prev.x,iy-prev.y,iz-prev.z};
-                if(r.face.x== 1) r.faceIndex=0; if(r.face.x==-1) r.faceIndex=1;
-                if(r.face.y== 1) r.faceIndex=2; if(r.face.y==-1) r.faceIndex=3;
-                if(r.face.z== 1) r.faceIndex=4; if(r.face.z==-1) r.faceIndex=5;
+                if(r.face.x== 1) r.faceIdx=0;
+                else if(r.face.x==-1) r.faceIdx=1;
+                else if(r.face.y== 1) r.faceIdx=2;
+                else if(r.face.y==-1) r.faceIdx=3;
+                else if(r.face.z== 1) r.faceIdx=4;
+                else r.faceIdx=5;
                 return r;
             }
             prev={ix,iy,iz};
-            if(txM<tyM&&txM<tzM){ t=txM; txM+=txD; ix+=(int)stepX; }
-            else if(tyM<tzM)     { t=tyM; tyM+=tyD; iy+=(int)stepY; }
-            else                 { t=tzM; tzM+=tzD; iz+=(int)stepZ; }
+            if(tX<tY&&tX<tZ){ tX+=tDX; ix+=(int)sX; }
+            else if(tY<tZ)   { tY+=tDY; iy+=(int)sY; }
+            else             { tZ+=tDZ; iz+=(int)sZ; }
         }
         return r;
     }
-
-    ItemStack breakBlock(int wx,int wy,int wz,Player& player){
-        uint8_t b=getBlock(wx,wy,wz);
-        if(b==AIR||b==BEDROCK) return ItemStack();
-        setBlock(wx,wy,wz,AIR);
-        ItemStack drop;
-        switch(b){
-            case GRASS:        drop=ItemStack(DIRT,1); break;
-            case OAK_LEAVES:   if(rand()%20==0) drop=ItemStack(OAK_LOG,1);    break;
-            case BIRCH_LEAVES: if(rand()%20==0) drop=ItemStack(BIRCH_LOG,1);  break;
-            case SPRUCE_LEAVES:if(rand()%20==0) drop=ItemStack(SPRUCE_LOG,1); break;
-            case COAL_ORE:     drop=ItemStack(ITEM_COAL,1+(rand()%2));  break;
-            case DIAMOND_ORE:  drop=ItemStack(ITEM_DIAMOND,1);          break;
-            case EMERALD_ORE:  drop=ItemStack(ITEM_EMERALD,1);          break;
-            case REDSTONE_ORE: drop=ItemStack(ITEM_REDSTONE,4+(rand()%2)); break;
-            case IRON_ORE:     drop=ItemStack(ITEM_RAW_IRON,1);         break;
-            case GOLD_ORE:     drop=ItemStack(ITEM_RAW_GOLD,1);         break;
-            default:           drop=ItemStack(b,1);                     break;
-        }
-        if(!drop.empty()) player.inv.addItem(drop.id,drop.count);
-        return drop;
-    }
-
-    bool placeBlock(int wx,int wy,int wz,Player& player){
-        ItemStack& held=player.inv.slots[player.selectedSlot];
-        if(held.empty()) return false;
-        uint8_t bid=(uint8_t)held.id;
-        if(bid==0||bid>=BLOCK_COUNT) return false;
-        if(getBlock(wx,wy,wz)!=AIR) return false;
-        setBlock(wx,wy,wz,bid);
-        held.count--; if(!held.count) held=ItemStack();
-        return true;
-    }
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Mesh builder
-// ─────────────────────────────────────────────────────────────────────────────
-static const int   ATLAS_SIZE = 16;
-static const float TX         = 1.0f / ATLAS_SIZE;
+static const char* VS_WORLD=R"(#version 300 es
+precision highp float;
+layout(location=0) in vec3 aPos;
+layout(location=1) in vec2 aUV;
+layout(location=2) in float aAO;
+layout(location=3) in float aLight;
+layout(location=4) in float aNormal;
+uniform mat4 uMVP;
+uniform vec3 uCamPos;
+uniform float uFogStart,uFogEnd;
+out vec2 vUV;
+out float vAO,vLight,vFog,vNormal;
+void main(){
+    vec4 wpos=vec4(aPos,1.0);
+    gl_Position=uMVP*wpos;
+    vUV=aUV; vAO=aAO; vLight=aLight; vNormal=aNormal;
+    float dist=length(aPos-uCamPos);
+    vFog=clamp((dist-uFogStart)/(uFogEnd-uFogStart),0.0,1.0);
+})";
 
-static void getFaceUV(uint8_t tex,float& u0,float& v0){
-    int tx=tex%ATLAS_SIZE,ty=tex/ATLAS_SIZE;
-    u0=tx*TX; v0=ty*TX;
+static const char* FS_WORLD=R"(#version 300 es
+precision highp float;
+in vec2 vUV;
+in float vAO,vLight,vFog,vNormal;
+uniform sampler2D uAtlas;
+uniform vec3 uFogColor;
+uniform float uDayLight;
+uniform float uTime;
+out vec4 fragColor;
+void main(){
+    vec4 tex=texture(uAtlas,vUV);
+    if(tex.a<0.1) discard;
+    float ao=mix(0.4,1.0,vAO);
+    float light=vLight*uDayLight*ao;
+    light=max(light,0.04);
+    vec3 col=tex.rgb*light;
+    col=mix(col,uFogColor,vFog);
+    fragColor=vec4(col,tex.a);
+})";
+
+static const char* VS_WATER=R"(#version 300 es
+precision highp float;
+layout(location=0) in vec3 aPos;
+layout(location=1) in vec2 aUV;
+layout(location=2) in float aAO;
+layout(location=3) in float aLight;
+layout(location=4) in float aNormal;
+uniform mat4 uMVP;
+uniform vec3 uCamPos;
+uniform float uFogStart,uFogEnd,uTime;
+out vec2 vUV;
+out float vFog,vLight;
+void main(){
+    vec3 pos=aPos;
+    pos.y+=sin(aPos.x*0.8+uTime*1.2)*0.04+cos(aPos.z*0.8+uTime*0.9)*0.03;
+    gl_Position=uMVP*vec4(pos,1.0);
+    vUV=aUV+vec2(sin(uTime*0.4)*0.01,cos(uTime*0.35)*0.01);
+    float dist=length(aPos-uCamPos);
+    vFog=clamp((dist-uFogStart)/(uFogEnd-uFogStart),0.0,1.0);
+    vLight=aLight;
+})";
+
+static const char* FS_WATER=R"(#version 300 es
+precision highp float;
+in vec2 vUV;
+in float vFog,vLight;
+uniform sampler2D uAtlas;
+uniform vec3 uFogColor;
+uniform float uDayLight;
+out vec4 fragColor;
+void main(){
+    vec4 tex=texture(uAtlas,vUV);
+    vec3 col=tex.rgb*vLight*uDayLight;
+    col=mix(col,uFogColor,vFog);
+    fragColor=vec4(col,0.72);
+})";
+
+static const char* VS_SKY=R"(#version 300 es
+precision highp float;
+layout(location=0) in vec3 aPos;
+uniform mat4 uVP;
+out vec3 vDir;
+void main(){
+    vDir=aPos;
+    vec4 p=uVP*vec4(aPos*500.0,1.0);
+    gl_Position=p.xyww;
+})";
+
+static const char* FS_SKY=R"(#version 300 es
+precision highp float;
+in vec3 vDir;
+uniform vec3 uSkyTop,uSkyHorizon,uSunDir;
+uniform float uDayLight;
+out vec4 fragColor;
+void main(){
+    vec3 d=normalize(vDir);
+    float h=clamp(d.y,0.0,1.0);
+    vec3 sky=mix(uSkyHorizon,uSkyTop,h*h);
+    float sun=max(0.0,dot(d,uSunDir));
+    sun=pow(sun,128.0);
+    vec3 sunColor=vec3(1.0,0.95,0.7)*sun*uDayLight;
+    float stars=step(0.997,fract(sin(dot(floor(d*200.0),vec3(12.9898,78.233,54.21)))*43758.5453));
+    vec3 starCol=vec3(stars)*(1.0-uDayLight);
+    fragColor=vec4(sky+sunColor+starCol,1.0);
+})";
+
+static const char* VS_UI=R"(#version 300 es
+precision mediump float;
+layout(location=0) in vec2 aPos;
+layout(location=1) in vec2 aUV;
+layout(location=2) in vec4 aColor;
+uniform mat4 uProj;
+out vec2 vUV;
+out vec4 vColor;
+void main(){ gl_Position=uProj*vec4(aPos,0,1); vUV=aUV; vColor=aColor; })";
+
+static const char* FS_UI=R"(#version 300 es
+precision mediump float;
+in vec2 vUV;
+in vec4 vColor;
+uniform sampler2D uTex;
+uniform int uHasTex;
+out vec4 fragColor;
+void main(){
+    if(uHasTex==1){ vec4 t=texture(uTex,vUV); if(t.a<0.01) discard; fragColor=t*vColor; }
+    else fragColor=vColor;
+})";
+
+static GLuint compileShader(GLenum type,const char* src){
+    GLuint s=glCreateShader(type);
+    glShaderSource(s,1,&src,nullptr);
+    glCompileShader(s);
+    GLint ok; glGetShaderiv(s,GL_COMPILE_STATUS,&ok);
+    if(!ok){ char log[1024]; glGetShaderInfoLog(s,1024,nullptr,log); LOGE("Shader: %s",log); }
+    return s;
+}
+static GLuint linkProg(const char* vs,const char* fs){
+    GLuint v=compileShader(GL_VERTEX_SHADER,vs),f=compileShader(GL_FRAGMENT_SHADER,fs);
+    GLuint p=glCreateProgram();
+    glAttachShader(p,v); glAttachShader(p,f); glLinkProgram(p);
+    GLint ok; glGetProgramiv(p,GL_LINK_STATUS,&ok);
+    if(!ok){ char log[1024]; glGetProgramInfoLog(p,1024,nullptr,log); LOGE("Link: %s",log); }
+    glDeleteShader(v); glDeleteShader(f);
+    return p;
 }
 
-static void buildChunkMesh(Chunk& chunk,World& world){
-    chunk.vertices.clear(); chunk.indices.clear();
-    chunk.transVertices.clear(); chunk.transIndices.clear();
+static const int TILE=16;
+static const float TUV=1.f/ATLAS_DIM;
 
-    static const float DIRS[6][3]={{1,0,0},{-1,0,0},{0,1,0},{0,-1,0},{0,0,1},{0,0,-1}};
-    static const float LMULT[6]={0.8f,0.8f,1.0f,0.5f,0.9f,0.9f};
-    static const float FV[6][4][3]={
-        {{1,0,0},{1,1,0},{1,1,1},{1,0,1}},{{0,0,1},{0,1,1},{0,1,0},{0,0,0}},
-        {{0,1,1},{1,1,1},{1,1,0},{0,1,0}},{{0,0,0},{1,0,0},{1,0,1},{0,0,1}},
-        {{1,0,1},{1,1,1},{0,1,1},{0,0,1}},{{0,0,0},{0,1,0},{1,1,0},{1,0,0}},
+static void tileUV(uint8_t tile,float& u0,float& v0){
+    int tx=tile%ATLAS_DIM,ty=tile/ATLAS_DIM;
+    u0=(float)tx/ATLAS_DIM; v0=(float)ty/ATLAS_DIM;
+}
+
+struct MeshVertex {
+    float x,y,z;
+    float u,v;
+    float ao,light,normal;
+};
+
+static const float FACE_DIR[6][3]={{1,0,0},{-1,0,0},{0,1,0},{0,-1,0},{0,0,1},{0,0,-1}};
+static const float FACE_BRIGHTNESS[6]={0.8f,0.8f,1.0f,0.55f,0.9f,0.9f};
+static const float FACE_VERTS[6][4][3]={
+    {{1,0,0},{1,1,0},{1,1,1},{1,0,1}},
+    {{0,0,1},{0,1,1},{0,1,0},{0,0,0}},
+    {{0,1,0},{1,1,0},{1,1,1},{0,1,1}},
+    {{0,0,1},{1,0,1},{1,0,0},{0,0,0}},
+    {{0,0,1},{0,1,1},{1,1,1},{1,0,1}},
+    {{1,0,0},{1,1,0},{0,1,0},{0,0,0}},
+};
+static const float FACE_UV[4][2]={{0,1},{0,0},{1,0},{1,1}};
+
+static float computeAO(World& world,int wx,int wy,int wz,int faceAxis,int faceDir,int vi){
+    static const int AOOFFS[6][4][3][3]={
+        {{{0,-1,1},{0,0,1},{0,1,1}},{{0,-1,-1},{0,0,-1},{0,-1,1}},{{0,1,-1},{0,0,-1},{0,1,-1}},{{0,1,1},{0,0,1},{0,1,1}}},
+        {{{0,-1,-1},{0,0,-1},{0,1,-1}},{{0,-1,1},{0,0,1},{0,-1,-1}},{{0,1,1},{0,0,1},{0,1,-1}},{{0,1,-1},{0,0,-1},{0,1,1}}},
+        {{{-1,0,1},{-1,0,0},{1,0,1}},{{-1,0,-1},{-1,0,0},{-1,0,1}},{{1,0,-1},{1,0,0},{1,0,-1}},{{1,0,1},{1,0,0},{1,0,-1}}},
+        {{{-1,0,1},{-1,0,0},{1,0,1}},{{1,0,1},{1,0,0},{-1,0,1}},{{1,0,-1},{1,0,0},{1,0,-1}},{{-1,0,-1},{-1,0,0},{-1,0,-1}}},
+        {{{-1,0,0},{-1,0,1},{1,0,0}},{{-1,0,0},{-1,0,1},{-1,0,0}},{{1,0,0},{1,0,1},{-1,0,0}},{{1,0,0},{1,0,1},{1,0,0}}},
+        {{{1,0,0},{1,0,-1},{-1,0,0}},{{-1,0,0},{-1,0,-1},{1,0,0}},{{-1,0,0},{-1,0,-1},{-1,0,0}},{{1,0,0},{1,0,-1},{1,0,0}}},
     };
-    static const float FUVS[4][2]={{0,0},{0,1},{1,1},{1,0}};
+    int blocked=0;
+    for(int k=0;k<3;k++){
+        auto& off=AOOFFS[faceAxis*2+(faceDir<0?1:0)][vi][k];
+        if(BD(world.blockAt(wx+off[0],wy+off[1],wz+off[2])).solid) blocked++;
+    }
+    return 1.f-(blocked*0.25f);
+}
 
-    int baseX=chunk.cx*CS, baseZ=chunk.cz*CS;
+static void buildChunkMesh(Chunk& c,World& world){
+    std::vector<MeshVertex> opaque,trans;
+    std::vector<uint32_t>   oIdx,tIdx;
+
+    int bX=c.cx*CS,bZ=c.cz*CS;
+
     for(int x=0;x<CS;x++) for(int y=0;y<WH;y++) for(int z=0;z<CS;z++){
-        uint8_t bid=chunk.blocks[x][y][z];
+        uint8_t bid=c.blocks[c.idx(x,y,z)];
         if(bid==AIR) continue;
-        const BlockDef& bd=BLOCK_DEFS[bid];
+        const BlockDef& bd=BD(bid);
         if(!bd.solid&&!bd.fluid) continue;
-        int wx=baseX+x, wz=baseZ+z;
+        int wx=bX+x,wz=bZ+z;
         bool isTrans=bd.transparent||bd.fluid;
-        auto& verts=isTrans?chunk.transVertices:chunk.vertices;
-        auto& idxs =isTrans?chunk.transIndices:chunk.indices;
+        auto& verts=isTrans?trans:opaque;
+        auto& idxs =isTrans?tIdx:oIdx;
 
-        for(int f=0;f<6;f++){
-            int nx2=wx+(int)DIRS[f][0],ny2=y+(int)DIRS[f][1],nz2=wz+(int)DIRS[f][2];
-            uint8_t nb=world.getBlockNoLock(nx2,ny2,nz2);
-            const BlockDef& nbd=BLOCK_DEFS[nb];
+        for(int fi=0;fi<6;fi++){
+            int nx=wx+(int)FACE_DIR[fi][0],ny=y+(int)FACE_DIR[fi][1],nz=wz+(int)FACE_DIR[fi][2];
+            uint8_t nb=world.blockAt(nx,ny,nz);
+            const BlockDef& nbd=BD(nb);
             if(nbd.solid&&!nbd.transparent&&!nbd.fluid) continue;
             if(bid==nb) continue;
-
-            uint8_t tex=(f==2)?bd.texTop:(f==3)?bd.texBottom:bd.texSide;
-            float u0,v0; getFaceUV(tex,u0,v0);
-            float ld=(float)chunk.getLight(x,y,z)/15.0f*LMULT[f];
-            uint32_t base=(uint32_t)(verts.size()/8);
+            uint8_t tex=(fi==2)?bd.texTop:(fi==3)?bd.texBottom:bd.texSide;
+            float u0,v0; tileUV(tex,u0,v0);
+            float lv=(float)world.lightAt(nx,ny,nz)/15.f*FACE_BRIGHTNESS[fi];
+            uint32_t base=(uint32_t)verts.size();
             for(int vi=0;vi<4;vi++){
-                verts.push_back(x+FV[f][vi][0]); verts.push_back(y+FV[f][vi][1]); verts.push_back(z+FV[f][vi][2]);
-                verts.push_back(u0+FUVS[vi][0]*TX); verts.push_back(v0+FUVS[vi][1]*TX);
-                verts.push_back(1.0f); verts.push_back(ld); verts.push_back(0);
+                float ao=computeAO(world,wx,y,wz,fi/2,(fi%2==0)?1:-1,vi);
+                MeshVertex mv;
+                mv.x=x+FACE_VERTS[fi][vi][0]; mv.y=y+FACE_VERTS[fi][vi][1]; mv.z=z+FACE_VERTS[fi][vi][2];
+                mv.u=u0+FACE_UV[vi][0]*TUV; mv.v=v0+FACE_UV[vi][1]*TUV;
+                mv.ao=ao; mv.light=lv; mv.normal=(float)fi;
+                verts.push_back(mv);
             }
             idxs.push_back(base); idxs.push_back(base+1); idxs.push_back(base+2);
             idxs.push_back(base); idxs.push_back(base+2); idxs.push_back(base+3);
         }
     }
-    chunk.meshDirty=false;
+
+    {
+        std::lock_guard lk(c.meshMutex);
+        c.pendingVerts.resize(opaque.size()*8);
+        for(size_t i=0;i<opaque.size();i++){
+            auto& mv=opaque[i]; float* d=&c.pendingVerts[i*8];
+            d[0]=mv.x+bX; d[1]=mv.y; d[2]=mv.z+bZ;
+            d[3]=mv.u; d[4]=mv.v; d[5]=mv.ao; d[6]=mv.light; d[7]=mv.normal;
+        }
+        c.pendingIdx=std::move(oIdx);
+        c.pendingTVerts.resize(trans.size()*8);
+        for(size_t i=0;i<trans.size();i++){
+            auto& mv=trans[i]; float* d=&c.pendingTVerts[i*8];
+            d[0]=mv.x+bX; d[1]=mv.y; d[2]=mv.z+bZ;
+            d[3]=mv.u; d[4]=mv.v; d[5]=mv.ao; d[6]=mv.light; d[7]=mv.normal;
+        }
+        c.pendingTIdx=std::move(tIdx);
+        c.meshReady=true;
+    }
+    c.meshBuilding=false;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// GLSL Shader'lar
-// ─────────────────────────────────────────────────────────────────────────────
-static const char* VS_WORLD = R"(#version 300 es
-precision highp float;
-layout(location=0) in vec3 aPos; layout(location=1) in vec2 aUV;
-layout(location=2) in float aAO;  layout(location=3) in float aLight;
-uniform mat4 uMVP; uniform vec3 uFogColor,uCamPos;
-uniform float uFogStart,uFogEnd;
-out vec2 vUV; out float vAO,vLight,vFog;
-void main(){
-    gl_Position=uMVP*vec4(aPos,1.0); vUV=aUV; vAO=aAO; vLight=aLight;
-    vFog=clamp((length(aPos-uCamPos)-uFogStart)/(uFogEnd-uFogStart),0.0,1.0);
-})";
-static const char* FS_WORLD = R"(#version 300 es
-precision highp float;
-in vec2 vUV; in float vAO,vLight,vFog;
-uniform sampler2D uAtlas; uniform vec3 uFogColor; uniform float uDayLight;
-out vec4 fragColor;
-void main(){
-    vec4 tex=texture(uAtlas,vUV); if(tex.a<0.1) discard;
-    float b=max(vAO*vLight*uDayLight,0.05);
-    fragColor=vec4(mix(tex.rgb*b,uFogColor,vFog),tex.a);
-})";
-static const char* VS_UI = R"(#version 300 es
-precision mediump float;
-layout(location=0) in vec2 aPos; layout(location=1) in vec2 aUV; layout(location=2) in vec4 aColor;
-uniform mat4 uProj; out vec2 vUV; out vec4 vColor;
-void main(){ gl_Position=uProj*vec4(aPos,0,1); vUV=aUV; vColor=aColor; })";
-static const char* FS_UI = R"(#version 300 es
-precision mediump float;
-in vec2 vUV; in vec4 vColor; uniform sampler2D uTex; uniform bool uHasTex;
-out vec4 fragColor;
-void main(){
-    if(uHasTex){ vec4 t=texture(uTex,vUV); if(t.a<0.01) discard; fragColor=t*vColor; }
-    else fragColor=vColor;
-})";
+static void uploadChunkMesh(Chunk& c){
+    std::lock_guard lk(c.meshMutex);
+    if(!c.meshReady) return;
 
-static GLuint compileShader(GLenum type,const char* src){
-    GLuint s=glCreateShader(type); glShaderSource(s,1,&src,nullptr); glCompileShader(s);
-    GLint ok; glGetShaderiv(s,GL_COMPILE_STATUS,&ok);
-    if(!ok){ char log[512]; glGetShaderInfoLog(s,512,nullptr,log); LOGE("Shader: %s",log); }
-    return s;
-}
-static GLuint linkProgram(const char* vs,const char* fs){
-    GLuint v=compileShader(GL_VERTEX_SHADER,vs), f=compileShader(GL_FRAGMENT_SHADER,fs);
-    GLuint p=glCreateProgram();
-    glAttachShader(p,v); glAttachShader(p,f); glLinkProgram(p);
-    GLint ok; glGetProgramiv(p,GL_LINK_STATUS,&ok);
-    if(!ok){ char log[512]; glGetProgramInfoLog(p,512,nullptr,log); LOGE("Link: %s",log); }
-    glDeleteShader(v); glDeleteShader(f); return p;
+    auto upload=[](GLuint& vao,GLuint& vbo,GLuint& ebo,
+                   std::vector<float>& verts,std::vector<uint32_t>& idx,std::atomic<int>& cnt){
+        if(verts.empty()){ cnt=0; return; }
+        if(!vao){ glGenVertexArrays(1,&vao); glGenBuffers(1,&vbo); glGenBuffers(1,&ebo); }
+        glBindVertexArray(vao);
+        glBindBuffer(GL_ARRAY_BUFFER,vbo);
+        glBufferData(GL_ARRAY_BUFFER,(GLsizeiptr)(verts.size()*4),verts.data(),GL_DYNAMIC_DRAW);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,ebo);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER,(GLsizeiptr)(idx.size()*4),idx.data(),GL_DYNAMIC_DRAW);
+        glEnableVertexAttribArray(0); glVertexAttribPointer(0,3,GL_FLOAT,false,32,(void*)0);
+        glEnableVertexAttribArray(1); glVertexAttribPointer(1,2,GL_FLOAT,false,32,(void*)12);
+        glEnableVertexAttribArray(2); glVertexAttribPointer(2,1,GL_FLOAT,false,32,(void*)20);
+        glEnableVertexAttribArray(3); glVertexAttribPointer(3,1,GL_FLOAT,false,32,(void*)24);
+        glEnableVertexAttribArray(4); glVertexAttribPointer(4,1,GL_FLOAT,false,32,(void*)28);
+        cnt=(int)idx.size();
+    };
+    upload(c.vao,c.vbo,c.ebo,c.pendingVerts,c.pendingIdx,c.indexCount);
+    upload(c.tVao,c.tVbo,c.tEbo,c.pendingTVerts,c.pendingTIdx,c.tIndexCount);
+    glBindVertexArray(0);
+    c.meshReady=false;
+    c.meshDirty=false;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Renderer
-// ─────────────────────────────────────────────────────────────────────────────
-struct Renderer {
-    GLuint worldProg,uiProg,atlasTexture;
-    int    screenW,screenH;
-    float  proj[16],view[16],mvp[16],ortho[16];
-    std::vector<Particle> particles;
-    struct UIVertex{ float x,y,u,v,r,g,b,a; };
-    std::vector<UIVertex> uiVerts;
+static uint32_t generateAtlasTexture(){
+    const int TS=16,AS=TS*ATLAS_DIM;
+    std::vector<uint32_t> data(AS*AS,0xFF808080u);
+
+    auto px=[&](int tx,int ty,int px2,int py2,uint32_t c){
+        data[(ty*TS+py2)*AS+(tx*TS+px2)]=c;
+    };
+    auto fill=[&](int tx,int ty,uint32_t c){
+        for(int py2=0;py2<TS;py2++) for(int px2=0;px2<TS;px2++) px(tx,ty,px2,py2,c);
+    };
+    auto noiseF=[&](int tx,int ty,uint32_t base,int var){
+        srand(tx*100+ty);
+        for(int py2=0;py2<TS;py2++) for(int px2=0;px2<TS;px2++){
+            int v=(rand()%var)-var/2;
+            uint8_t r2=clampf(((base)&0xFF)+v,0,255);
+            uint8_t g2=clampf(((base>>8)&0xFF)+v,0,255);
+            uint8_t b2=clampf(((base>>16)&0xFF)+v,0,255);
+            px(tx,ty,px2,py2,0xFF000000|(b2<<16)|(g2<<8)|r2);
+        }
+    };
+    auto checker=[&](int tx,int ty,uint32_t c1,uint32_t c2){
+        for(int py2=0;py2<TS;py2++) for(int px2=0;px2<TS;px2++)
+            px(tx,ty,px2,py2,((px2/4+py2/4)%2)?c2:c1);
+    };
+    auto stripes=[&](int tx,int ty,uint32_t c1,uint32_t c2,bool horiz){
+        for(int py2=0;py2<TS;py2++) for(int px2=0;px2<TS;px2++)
+            px(tx,ty,px2,py2,((horiz?py2:px2)/4%2)?c2:c1);
+    };
+
+    noiseF(1, 0,0x3B7A3Bu,18);
+    noiseF(2, 0,0x3A6B3Au,22);
+    noiseF(3, 0,0x6B3A1Fu,15);
+    noiseF(4, 0,0x808080u,22);
+    noiseF(5, 0,0x606060u,18);
+    noiseF(6, 0,0xD4B450u,20);
+    noiseF(7, 0,0x9B9B9Bu,12);
+    fill(8, 0,0xFF4A2810u);
+    checker(9, 0,0xFF5C3A1Bu,0xFF4A2F14u);
+    fill(10,0,0x7F22AA22u);
+    checker(11,0,0xFFDEB887u,0xFFC8A060u);
+    fill(12,0,0xFF4A2810u);
+    stripes(13,0,0xFF5C3A1Bu,0xFF8B5A2Bu,false);
+    fill(14,0,0xFFDEB887u);
+    fill(15,0,0xFF4A2810u);
+    checker(16,0,0xFF654321u,0xFF543210u);
+    fill(17,0,0xFF654321u);
+    checker(18,0,0xFF90A070u,0xFF708060u);
+    fill(19,0,0xFF90A070u);
+    noiseF(20,0,0x444444u,20);
+    noiseF(21,0,0x888888u,18);
+    checker(22,0,0xFF888888u,0xFFAA6644u);
+    checker(23,0,0xFF888888u,0xFFCCCC22u);
+    checker(24,0,0xFF888888u,0xFF22BBBBu);
+    checker(25,0,0xFF777777u,0xFF00FF44u);
+    checker(26,0,0xFF777777u,0xFFCC4444u);
+    checker(27,0,0xFF777777u,0xFF4488CCu);
+    fill(28,0,0xFF333333u);
+    fill(29,0,0xFF999999u);
+    fill(30,0,0xFFDDAA00u);
+    fill(31,0,0xFF22BBBBu);
+
+    fill(0, 1,0xCC2244AAu);
+    fill(1, 1,0xFFDD4400u);
+    fill(2, 1,0xDDDDFFFFu);
+    noiseF(3, 1,0xFFFF00u,10);
+    noiseF(4, 1,0x333333u, 5);
+    checker(5, 1,0xFF4A2810u,0xFF8B0000u);
+    fill(6, 1,0xFF8B4513u);
+    fill(7, 1,0xFF777777u);
+    fill(8, 1,0xFF888877u);
+    fill(9, 1,0xFF666666u);
+    fill(10,1,0xFF8B7355u);
+    fill(11,1,0xFF444444u);
+    fill(12,1,0xFF555555u);
+    fill(13,1,0xFFDDDD00u);
+    fill(14,1,0xFF4488FFu);
+    fill(15,1,0xFFAA6600u);
+
+    noiseF(0, 2,0xE0E8F0u,5);
+    noiseF(1, 2,0x99BBDDu,8);
+    noiseF(2, 2,0xA0A0B8u,6);
+    fill(3, 2,0xFF888888u);
+    fill(4, 2,0xFF777777u);
+    checker(5, 2,0xFF888888u,0xFF999988u);
+    checker(6, 2,0xFF888877u,0xFF777766u);
+    checker(7, 2,0xFFAA8844u,0xFF997733u);
+    noiseF(8, 2,0xFF8B0000u,8);
+    fill(9, 2,0xFF888888u);
+    checker(10,2,0xFF888880u,0xFF77776Fu);
+    fill(11,2,0xFF222222u);
+    fill(12,2,0xFF887766u);
+    fill(13,2,0xFFCC8844u);
+    fill(14,2,0xFF227722u);
+    fill(15,2,0xFF229922u);
+
+    for(int i=0;i<16;i++) for(int j=0;j<4;j++) noiseF(i,4+j,0x33AA33u+i*0x010101u,20+i*2);
+
+    GLuint tex;
+    glGenTextures(1,&tex);
+    glBindTexture(GL_TEXTURE_2D,tex);
+    glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA,AS,AS,0,GL_RGBA,GL_UNSIGNED_BYTE,data.data());
+    glGenerateMipmap(GL_TEXTURE_2D);
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_REPEAT);
+    return tex;
+}
+
+static const float SKY_CUBE[]={
+    -1,1,-1,-1,-1,-1,1,-1,-1,1,-1,-1,1,1,-1,-1,1,-1,
+    -1,-1,1,-1,-1,-1,-1,1,-1,-1,1,-1,-1,1,1,-1,-1,1,
+    1,-1,-1,1,-1,1,1,1,1,1,1,1,1,1,-1,1,-1,-1,
+    -1,-1,1,-1,1,1,1,1,1,1,1,1,1,-1,1,-1,-1,1,
+    -1,1,-1,1,1,-1,1,1,1,1,1,1,-1,1,1,-1,1,-1,
+    -1,-1,-1,-1,-1,1,1,-1,1,1,-1,1,1,-1,-1,-1,-1,-1,
+};
+
+struct Player {
+    Vec3  pos{0,80,0},vel{};
+    float yaw=0,pitch=0;
+    float health=20,maxHp=20,hunger=20,maxHunger=20,saturation=5;
+    float eyeH=1.62f,fallDist=0,foodExhaust=0,sens=0.25f;
+    bool  ground=false,inWater=false,inLava=false;
+    bool  sneaking=false,sprinting=false,flying=false;
+    bool  creative=false,dead=false;
+    int   hurtTimer=0,invulTimer=0,deathTimer=0,selSlot=0;
+    float breakProg=0;
+    Vec3i breakTarget{};
+    bool  breaking=false;
+    Inventory inv;
+    Vec3i respawn{0,80,0};
+
+    AABB bounds()const{ return {pos.x-.3f,pos.y,pos.z-.3f,pos.x+.3f,pos.y+1.8f,pos.z+.3f}; }
+    Vec3 eyePos()const{ return {pos.x,pos.y+eyeH,pos.z}; }
+    Vec3 lookDir()const{
+        float y2=yaw*(3.14159f/180.f),p=pitch*(3.14159f/180.f);
+        return {cosf(p)*sinf(-y2),sinf(p),cosf(p)*cosf(-y2)};
+    }
+};
+
+struct Particle {
+    Vec3 pos,vel;
+    float r,g,b,a,life,maxLife,size;
+    bool active;
+};
+
+struct ChatMsg { std::string text; float timer; uint32_t color; };
+
+class PhysicsSystem {
+public:
+    bool collidesWorld(World& w,const AABB& box){
+        for(int x=flr(box.x0);x<=(int)box.x1;x++)
+        for(int y=flr(box.y0);y<=(int)box.y1;y++)
+        for(int z=flr(box.z0);z<=(int)box.z1;z++){
+            uint8_t b=w.blockAt(x,y,z);
+            if(BD(b).solid&&!BD(b).fluid) return true;
+        }
+        return false;
+    }
+
+    void step(Player& p,World& w,float dt){
+        if(p.dead){ p.deathTimer--; if(p.deathTimer<=0){
+            p.pos={p.respawn.x,p.respawn.y+1.f,p.respawn.z};
+            p.vel={}; p.health=p.maxHp; p.dead=false;
+        } return; }
+
+        if(p.flying||p.creative){
+            p.pos+=p.vel*dt;
+            p.vel.x*=0.85f; p.vel.z*=0.85f; p.vel.y*=0.85f;
+        } else {
+            p.vel.y+=GRAVITY*dt;
+            p.inWater=(w.blockAt(flr(p.pos.x),flr(p.pos.y+1.f),flr(p.pos.z))==WATER);
+            p.inLava =(w.blockAt(flr(p.pos.x),flr(p.pos.y+0.5f),flr(p.pos.z))==LAVA);
+            if(p.inWater){ p.vel.y=std::max(p.vel.y,-3.f); p.vel.y+=0.04f; }
+            if(p.inLava) p.vel.y=std::max(p.vel.y,-2.f);
+
+            Vec3 npos=p.pos+p.vel*dt;
+            AABB boxY{p.pos.x-.3f,npos.y,p.pos.z-.3f,p.pos.x+.3f,npos.y+1.8f,p.pos.z+.3f};
+            if(collidesWorld(w,boxY)){
+                if(p.vel.y<0){ p.ground=true;
+                    if(p.vel.y<-7.f&&!p.inWater&&!p.creative) p.health-=(-p.vel.y-7.f);
+                } p.vel.y=0; npos.y=p.pos.y;
+            } else p.ground=false;
+
+            AABB boxX{npos.x-.3f,npos.y,p.pos.z-.3f,npos.x+.3f,npos.y+1.8f,p.pos.z+.3f};
+            if(collidesWorld(w,boxX)){ p.vel.x=0; npos.x=p.pos.x; }
+            AABB boxZ{npos.x-.3f,npos.y,npos.z-.3f,npos.x+.3f,npos.y+1.8f,npos.z+.3f};
+            if(collidesWorld(w,boxZ)){ p.vel.z=0; npos.z=p.pos.z; }
+            p.pos=npos;
+
+            float fr=p.ground?BD(w.blockAt(flr(p.pos.x),flr(p.pos.y)-1,flr(p.pos.z))).friction:0.91f;
+            p.vel.x*=fr; p.vel.z*=fr;
+        }
+
+        if(p.inLava&&!p.creative&&p.invulTimer<=0){ p.health-=4.f*dt; p.invulTimer=20; }
+        if(p.invulTimer>0) p.invulTimer--;
+        if(p.hurtTimer>0)  p.hurtTimer--;
+
+        if(!p.creative){
+            p.foodExhaust+=dt*(p.sprinting?0.12f:0.01f);
+            if(p.foodExhaust>=4.f){ p.foodExhaust=0;
+                if(p.saturation>0) p.saturation=std::max(0.f,p.saturation-1.f);
+                else if(p.hunger>0) p.hunger=std::max(0.f,p.hunger-1.f);
+            }
+            if(p.hunger>=18&&p.health<p.maxHp) p.health=std::min(p.maxHp,p.health+0.5f*dt);
+            if(p.hunger<=0) p.health-=0.08f*dt;
+        }
+        if(p.health<=0&&!p.dead){ p.dead=true; p.deathTimer=80; }
+    }
+};
+
+struct UIVertex { float x,y,u,v,r,g,b,a; };
+
+class Renderer {
+public:
+    GLuint worldProg,waterProg,skyProg,uiProg;
+    GLuint atlasTex;
+    GLuint skyVAO,skyVBO;
     GLuint uiVAO,uiVBO;
+    int    screenW=1,screenH=1;
+    std::vector<UIVertex> uiVerts;
+    std::vector<Particle> particles;
 
     void init(int w,int h){
         screenW=w; screenH=h;
-        worldProg=linkProgram(VS_WORLD,FS_WORLD);
-        uiProg   =linkProgram(VS_UI,FS_UI);
-        generateAtlas();
-        glGenVertexArrays(1,&uiVAO); glGenBuffers(1,&uiVBO);
-        particles.resize(2048);
-        glEnable(GL_DEPTH_TEST); glEnable(GL_CULL_FACE); glCullFace(GL_BACK);
-        LOGI("Renderer %dx%d",w,h);
-    }
+        worldProg=linkProg(VS_WORLD,FS_WORLD);
+        waterProg=linkProg(VS_WATER,FS_WATER);
+        skyProg  =linkProg(VS_SKY,  FS_SKY);
+        uiProg   =linkProg(VS_UI,   FS_UI);
+        atlasTex =generateAtlasTexture();
 
-    void generateAtlas(){
-        const int TS=16,AS=TS*ATLAS_SIZE;
-        std::vector<uint32_t> data(AS*AS,0xFF808080u);
-        auto noise=[&](int tx,int ty,uint32_t base,int var){
-            for(int py=0;py<TS;py++) for(int px=0;px<TS;px++){
-                int v=(rand()%var)-var/2;
-                uint8_t r2=(uint8_t)clamp((float)((base)&0xFF)+v,0,255);
-                uint8_t g2=(uint8_t)clamp((float)((base>>8)&0xFF)+v,0,255);
-                uint8_t b2=(uint8_t)clamp((float)((base>>16)&0xFF)+v,0,255);
-                data[(ty*TS+py)*AS+(tx*TS+px)]=0xFF000000|(b2<<16)|(g2<<8)|r2;
-            }
-        };
-        auto solid  =[&](int tx,int ty,uint32_t c){ for(int py=0;py<TS;py++) for(int px=0;px<TS;px++) data[(ty*TS+py)*AS+(tx*TS+px)]=c; };
-        auto checker=[&](int tx,int ty,uint32_t c1,uint32_t c2){ for(int py=0;py<TS;py++) for(int px=0;px<TS;px++) data[(ty*TS+py)*AS+(tx*TS+px)]=((px/4+py/4)%2)?c2:c1; };
-
-        noise  (0,0,0x3B8F3Bu,20);   // grass top
-        noise  (2,0,0x6B3A1Fu,15);   // dirt
-        noise  (3,0,0x808080u,20);   // stone
-        noise  (4,0,0x606060u,18);   // cobblestone
-        noise  (5,0,0xC8B450u,22);   // sand
-        noise  (6,0,0x9B9B9Bu,12);   // gravel
-        solid  (7,0,0xFF5B4A2Au);    // oak log top
-        checker(8,0,0xFF5C3A1Bu,0xFF4A2F14u);  // oak log side
-        solid  (10,0,0x7F22AA22u);   // oak leaves
-        checker(11,0,0xFFDEB887u,0xFFC8A060u); // oak planks
-        checker(12,0,0xFF444444u,0xFF555555u); // coal ore
-        checker(13,0,0xFF888888u,0xFFAA6644u); // iron ore
-        checker(14,0,0xFF888888u,0xFFCCCC22u); // gold ore
-        checker(15,0,0xFF888888u,0xFF22BBBBu); // diamond ore
-        noise  (0,1,0x225599u,10);   // water
-        noise  (1,1,0xFF4400u, 8);   // lava
-        solid  (2,1,0xDDDDFFFFu);    // glass
-        solid  (3,1,0xFFFFDD00u);    // glowstone
-        solid  (4,1,0xFF333333u);    // netherrack
-        solid  (5,1,0xFFAA0000u);    // brick
-
-        glGenTextures(1,&atlasTexture);
-        glBindTexture(GL_TEXTURE_2D,atlasTexture);
-        glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA,AS,AS,0,GL_RGBA,GL_UNSIGNED_BYTE,data.data());
-        glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_REPEAT);
-    }
-
-    void uploadChunkMesh(Chunk& c){
-        auto up=[](GLuint& vao,GLuint& vbo,GLuint& ebo,
-                   std::vector<float>& verts,std::vector<uint32_t>& idxs,int& cnt){
-            if(vao==0){ glGenVertexArrays(1,&vao); glGenBuffers(1,&vbo); glGenBuffers(1,&ebo); }
-            glBindVertexArray(vao);
-            glBindBuffer(GL_ARRAY_BUFFER,vbo);
-            glBufferData(GL_ARRAY_BUFFER,(GLsizeiptr)(verts.size()*4),verts.data(),GL_DYNAMIC_DRAW);
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,ebo);
-            glBufferData(GL_ELEMENT_ARRAY_BUFFER,(GLsizeiptr)(idxs.size()*4),idxs.data(),GL_DYNAMIC_DRAW);
-            glEnableVertexAttribArray(0); glVertexAttribPointer(0,3,GL_FLOAT,false,32,(void*)0);
-            glEnableVertexAttribArray(1); glVertexAttribPointer(1,2,GL_FLOAT,false,32,(void*)12);
-            glEnableVertexAttribArray(2); glVertexAttribPointer(2,1,GL_FLOAT,false,32,(void*)20);
-            glEnableVertexAttribArray(3); glVertexAttribPointer(3,1,GL_FLOAT,false,32,(void*)24);
-            cnt=(int)idxs.size();
-        };
-        up(c.vao,c.vbo,c.ebo,c.vertices,c.indices,c.indexCount);
-        up(c.transVao,c.transVbo,c.transEbo,c.transVertices,c.transIndices,c.transIndexCount);
+        glGenVertexArrays(1,&skyVAO); glGenBuffers(1,&skyVBO);
+        glBindVertexArray(skyVAO);
+        glBindBuffer(GL_ARRAY_BUFFER,skyVBO);
+        glBufferData(GL_ARRAY_BUFFER,sizeof(SKY_CUBE),SKY_CUBE,GL_STATIC_DRAW);
+        glEnableVertexAttribArray(0); glVertexAttribPointer(0,3,GL_FLOAT,false,12,(void*)0);
         glBindVertexArray(0);
+
+        glGenVertexArrays(1,&uiVAO); glGenBuffers(1,&uiVBO);
+        particles.resize(1024);
+        glEnable(GL_DEPTH_TEST); glEnable(GL_CULL_FACE); glCullFace(GL_BACK);
+        LOGI("Renderer init %dx%d",w,h);
     }
 
-    void frame(World& world,Player& player,int w,int h){
-        if(w!=screenW||h!=screenH){ screenW=w; screenH=h; glViewport(0,0,w,h); }
-        float tod=world.timeOfDay/world.dayLength;
-        float dayF=sinf(tod*3.14159f);
-        float skyR=lerp(0.05f,0.53f,dayF),skyG=lerp(0.05f,0.81f,dayF),skyB=lerp(0.10f,0.98f,dayF);
+    void resize(int w,int h){ screenW=w; screenH=h; glViewport(0,0,w,h); }
+
+    void frame(World& world,Player& player,float time){
+        float tod=world.timeOfDay/24000.f;
+        float dayF=clampf(sinf(tod*3.14159f),0.f,1.f);
+        float skyR=lerp(.04f,.5f,dayF),skyG=lerp(.04f,.75f,dayF),skyB=lerp(.08f,.95f,dayF);
         glClearColor(skyR,skyG,skyB,1);
         glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
-        glEnable(GL_DEPTH_TEST); glEnable(GL_CULL_FACE); glDisable(GL_BLEND);
+        glEnable(GL_DEPTH_TEST); glDisable(GL_BLEND); glEnable(GL_CULL_FACE);
 
-        mat4Perspective(proj,1.309f,(float)w/(float)h,0.05f,1000.0f);
-        float eyeX=player.x,eyeY=player.y+player.eyeHeight,eyeZ=player.z;
-        float yaw  =player.cameraYaw  *(3.14159f/180.0f);
-        float pitch=player.cameraPitch*(3.14159f/180.0f);
-        mat4LookAt(view,eyeX,eyeY,eyeZ,
-            eyeX+cosf(pitch)*sinf(-yaw), eyeY+sinf(pitch), eyeZ+cosf(pitch)*cosf(-yaw));
-        mat4Mul(mvp,proj,view);
+        Mat4 proj=matPerspective(1.222f,(float)screenW/(float)screenH,.05f,800.f);
+        Vec3 eye=player.eyePos();
+        Vec3 dir=player.lookDir();
+        Vec3 tgt=eye+dir;
+        Vec3 up={0,1,0};
+        if(fabsf(dir.y)>0.999f) up={0,0,(float)(dir.y>0?-1:1)};
+        Mat4 view=matLookAt(eye,tgt,up);
+        Mat4 vp=proj*view;
+        Frustum frustum=buildFrustum(vp);
+
+        float sunYaw=(tod-.25f)*6.28318f;
+        Vec3 sunDir={cosf(sunYaw)*dayF,sinf(sunYaw),sinf(sunYaw)*0.3f};
+        sunDir=sunDir.norm();
+
+        glDepthMask(false);
+        Mat4 skyView=matLookAt({},tgt-eye,up);
+        Mat4 skyVP=proj*skyView;
+        glUseProgram(skyProg);
+        setUniform(skyProg,"uVP",skyVP);
+        setUniform3f(skyProg,"uSkyTop",{.1f,.35f,.75f*dayF+.05f});
+        setUniform3f(skyProg,"uSkyHorizon",{lerp(.04f,.65f,dayF),lerp(.04f,.80f,dayF),lerp(.08f,.90f,dayF)});
+        setUniform3f(skyProg,"uSunDir",sunDir);
+        setUniform1f(skyProg,"uDayLight",dayF);
+        glBindVertexArray(skyVAO);
+        glDrawArrays(GL_TRIANGLES,0,36);
+        glDepthMask(true);
 
         glUseProgram(worldProg);
-        glUniformMatrix4fv(glGetUniformLocation(worldProg,"uMVP"),1,false,mvp);
-        glUniform3f(glGetUniformLocation(worldProg,"uCamPos"),eyeX,eyeY,eyeZ);
-        glUniform3f(glGetUniformLocation(worldProg,"uFogColor"),skyR,skyG,skyB);
-        glUniform1f(glGetUniformLocation(worldProg,"uFogStart"),(float)(RD-2)*CS);
-        glUniform1f(glGetUniformLocation(worldProg,"uFogEnd"),(float)RD*CS);
-        glUniform1f(glGetUniformLocation(worldProg,"uDayLight"),0.1f+0.9f*std::max(0.0f,dayF));
+        setUniform(worldProg,"uMVP",vp);
+        setUniform3f(worldProg,"uCamPos",eye);
+        setUniform3f(worldProg,"uFogColor",{skyR,skyG,skyB});
+        setUniform1f(worldProg,"uFogStart",(float)(MESH_RD-2)*CS);
+        setUniform1f(worldProg,"uFogEnd",  (float)MESH_RD*CS);
+        setUniform1f(worldProg,"uDayLight",.08f+.92f*dayF);
+        setUniform1f(worldProg,"uTime",time);
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D,atlasTexture);
-        glUniform1i(glGetUniformLocation(worldProg,"uAtlas"),0);
+        glBindTexture(GL_TEXTURE_2D,atlasTex);
+        setUniform1i(worldProg,"uAtlas",0);
 
-        int pcx=flr(player.x/CS),pcz=flr(player.z/CS);
+        int pcx=flr(player.pos.x/CS),pcz=flr(player.pos.z/CS);
+
         {
-            std::lock_guard<std::recursive_mutex> lk(world.chunkMutex);
-            for(auto&[key,chunk]:world.chunks){
-                if(abs(chunk->cx-pcx)>RD||abs(chunk->cz-pcz)>RD) continue;
-                if(chunk->meshDirty) buildChunkMesh(*chunk,world);
-                if(chunk->meshDirty||chunk->vao==0) uploadChunkMesh(*chunk);
-                if(chunk->vao&&chunk->indexCount>0){
-                    glBindVertexArray(chunk->vao);
-                    glDrawElements(GL_TRIANGLES,chunk->indexCount,GL_UNSIGNED_INT,nullptr);
+            std::shared_lock lk(world.chunkMtx);
+            for(auto& [k,ch]:world.chunks){
+                if(std::abs(ch->cx-pcx)>MESH_RD||std::abs(ch->cz-pcz)>MESH_RD) continue;
+                if(ch->meshReady) uploadChunkMesh(*ch);
+                float cx2=(float)(ch->cx*CS),cz2=(float)(ch->cz*CS);
+                if(!aabbInFrustum(frustum,cx2,0,cz2,(float)CS)) continue;
+                if(ch->vao&&ch->indexCount>0){
+                    glBindVertexArray(ch->vao);
+                    glDrawElements(GL_TRIANGLES,ch->indexCount,GL_UNSIGNED_INT,nullptr);
                 }
             }
+
             glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
-            for(auto&[key,chunk]:world.chunks){
-                if(abs(chunk->cx-pcx)>RD||abs(chunk->cz-pcz)>RD) continue;
-                if(chunk->transVao&&chunk->transIndexCount>0){
-                    glBindVertexArray(chunk->transVao);
-                    glDrawElements(GL_TRIANGLES,chunk->transIndexCount,GL_UNSIGNED_INT,nullptr);
+            glUseProgram(waterProg);
+            setUniform(waterProg,"uMVP",vp);
+            setUniform3f(waterProg,"uCamPos",eye);
+            setUniform3f(waterProg,"uFogColor",{skyR,skyG,skyB});
+            setUniform1f(waterProg,"uFogStart",(float)(MESH_RD-2)*CS);
+            setUniform1f(waterProg,"uFogEnd",  (float)MESH_RD*CS);
+            setUniform1f(waterProg,"uDayLight",.08f+.92f*dayF);
+            setUniform1f(waterProg,"uTime",time);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D,atlasTex);
+            setUniform1i(waterProg,"uAtlas",0);
+
+            for(auto& [k,ch]:world.chunks){
+                if(std::abs(ch->cx-pcx)>MESH_RD||std::abs(ch->cz-pcz)>MESH_RD) continue;
+                float cx2=(float)(ch->cx*CS),cz2=(float)(ch->cz*CS);
+                if(!aabbInFrustum(frustum,cx2,0,cz2,(float)CS)) continue;
+                if(ch->tVao&&ch->tIndexCount>0){
+                    glBindVertexArray(ch->tVao);
+                    glDrawElements(GL_TRIANGLES,ch->tIndexCount,GL_UNSIGNED_INT,nullptr);
                 }
             }
         }
         glBindVertexArray(0);
     }
 
-    void spawnBreakParticles(float x,float y,float z){
-        int cnt=0;
-        for(auto& p:particles){
-            if(p.active||cnt>=8) break;
-            p.active=true; p.x=x+0.5f; p.y=y+0.5f; p.z=z+0.5f;
-            p.vx=(rand()%100-50)*0.02f; p.vy=rand()%100*0.03f; p.vz=(rand()%100-50)*0.02f;
-            p.life=p.maxLife=0.5f+(rand()%50)*0.01f; p.size=4+rand()%4;
-            p.r=0.5f; p.g=0.5f; p.b=0.5f; p.a=1.0f; cnt++;
+    void spawnParticles(Vec3 pos,int n=8){
+        int spawned=0;
+        for(auto& p:particles){ if(p.active||spawned>=n) break;
+            p.active=true; p.pos=pos+Vec3{.5f,.5f,.5f};
+            p.vel={((rand()%100)-50)*.02f,rand()%100*.03f,((rand()%100)-50)*.02f};
+            p.life=p.maxLife=.4f+rand()%40*.01f; p.size=3+rand()%4;
+            p.r=p.g=p.b=.5f+rand()%50*.01f; p.a=1; spawned++;
         }
     }
+
     void updateParticles(float dt){
         for(auto& p:particles){
             if(!p.active) continue;
-            p.x+=p.vx*dt; p.y+=p.vy*dt; p.z+=p.vz*dt;
-            p.vy+=G*dt*0.3f; p.life-=dt; p.a=p.life/p.maxLife;
+            p.pos+=p.vel*dt; p.vel.y+=GRAVITY*dt*.25f;
+            p.life-=dt; p.a=p.life/p.maxLife;
             if(p.life<=0) p.active=false;
         }
     }
-    void addUIQuad(float x0,float y0,float x1,float y1,float r,float g,float b,float a){
+
+    void addRect(float x0,float y0,float x1,float y1,float r,float g,float b,float a){
         uiVerts.push_back({x0,y0,0,0,r,g,b,a}); uiVerts.push_back({x1,y0,1,0,r,g,b,a});
         uiVerts.push_back({x1,y1,1,1,r,g,b,a}); uiVerts.push_back({x0,y0,0,0,r,g,b,a});
         uiVerts.push_back({x1,y1,1,1,r,g,b,a}); uiVerts.push_back({x0,y1,0,1,r,g,b,a});
     }
+
     void flushUI(){
         if(uiVerts.empty()) return;
-        mat4Ortho(ortho,0,(float)screenW,(float)screenH,0,-1,1);
+        Mat4 ortho=matOrtho(0,(float)screenW,(float)screenH,0,-1,1);
         glUseProgram(uiProg);
-        glUniformMatrix4fv(glGetUniformLocation(uiProg,"uProj"),1,false,ortho);
-        glUniform1i(glGetUniformLocation(uiProg,"uHasTex"),false);
+        setUniform(uiProg,"uProj",ortho);
+        setUniform1i(uiProg,"uHasTex",0);
         glBindVertexArray(uiVAO); glBindBuffer(GL_ARRAY_BUFFER,uiVBO);
         glBufferData(GL_ARRAY_BUFFER,(GLsizeiptr)(uiVerts.size()*sizeof(UIVertex)),uiVerts.data(),GL_DYNAMIC_DRAW);
         glEnableVertexAttribArray(0); glVertexAttribPointer(0,2,GL_FLOAT,false,sizeof(UIVertex),(void*)0);
         glEnableVertexAttribArray(1); glVertexAttribPointer(1,2,GL_FLOAT,false,sizeof(UIVertex),(void*)8);
         glEnableVertexAttribArray(2); glVertexAttribPointer(2,4,GL_FLOAT,false,sizeof(UIVertex),(void*)16);
-        glDrawArrays(GL_TRIANGLES,0,(int)uiVerts.size());
+        glDrawArrays(GL_TRIANGLES,0,(GLsizei)uiVerts.size());
         uiVerts.clear(); glBindVertexArray(0);
+    }
+
+private:
+    void setUniform(GLuint prog,const char* name,const Mat4& m){
+        glUniformMatrix4fv(glGetUniformLocation(prog,name),1,false,m.m);
+    }
+    void setUniform3f(GLuint prog,const char* name,Vec3 v){
+        glUniform3f(glGetUniformLocation(prog,name),v.x,v.y,v.z);
+    }
+    void setUniform1f(GLuint prog,const char* name,float v){
+        glUniform1f(glGetUniformLocation(prog,name),v);
+    }
+    void setUniform1i(GLuint prog,const char* name,int v){
+        glUniform1i(glGetUniformLocation(prog,name),v);
     }
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// GameState & global
-// ─────────────────────────────────────────────────────────────────────────────
 struct GameState {
-    World*    world;
-    Player    player;
-    Renderer  renderer;
-    std::vector<ChatMessage> chatLog;
-    bool      initialized;
-    int       screenW,screenH;
-    float     joystickX,joystickY,cameraJoyX,cameraJoyY;
-    uint64_t  seed;
-
-    GameState():world(nullptr),initialized(false),screenW(0),screenH(0),
-                joystickX(0),joystickY(0),cameraJoyX(0),cameraJoyY(0),seed(12345){}
+    std::unique_ptr<World>   world;
+    Player                   player;
+    Renderer                 renderer;
+    PhysicsSystem            physics;
+    std::unique_ptr<ThreadPool> threadPool;
+    std::vector<ChatMsg>     chatLog;
+    std::atomic<bool>        initialized{false};
+    int   screenW=1,screenH=1;
+    float joySX=0,joySY=0;
+    float time=0;
+    std::unordered_set<uint64_t> genInFlight;
+    std::unordered_set<uint64_t> meshInFlight;
+    std::mutex                   genMtx,meshMtx;
+    int   tickAccum=0;
 };
 
 static GameState* gState=nullptr;
 
-static void pushChat(GameState& gs,const std::string& text,uint32_t color=0xFFFFFFFFu){
-    ChatMessage m; m.text=text; m.timer=8.0f; m.color=color;
-    gs.chatLog.push_back(m);
-    if(gs.chatLog.size()>20) gs.chatLog.erase(gs.chatLog.begin());
+static void pushChat(GameState& gs,std::string text,uint32_t col=0xFFFFFFFFu){
+    gs.chatLog.push_back({std::move(text),10.f,col});
+    if(gs.chatLog.size()>32) gs.chatLog.erase(gs.chatLog.begin());
 }
 
-static void processChat(GameState& gs,const std::string& cmd){
+static void handleCommand(GameState& gs,const std::string& cmd){
     if(cmd=="/gamemode creative"||cmd=="/gamemode 1"){
-        gs.player.creative=true; gs.player.survival=false;
-        gs.player.adventure=false; gs.player.spectator=false; gs.player.flying=true;
-        pushChat(gs,"[Game] Creative mode",0xFF00FF00u);
+        gs.player.creative=true; gs.player.flying=true;
+        pushChat(gs,"Creative mode",0xFF00FF00u);
     } else if(cmd=="/gamemode survival"||cmd=="/gamemode 0"){
-        gs.player.creative=false; gs.player.survival=true;
-        gs.player.adventure=false; gs.player.spectator=false; gs.player.flying=false;
-        pushChat(gs,"[Game] Survival mode",0xFF00FF00u);
-    } else if(cmd=="/gamemode adventure"||cmd=="/gamemode 2"){
-        gs.player.creative=false; gs.player.survival=false;
-        gs.player.adventure=true; gs.player.spectator=false; gs.player.flying=false;
-        pushChat(gs,"[Game] Adventure mode",0xFF00FF00u);
+        gs.player.creative=false; gs.player.flying=false;
+        pushChat(gs,"Survival mode",0xFF00FF00u);
     } else if(cmd=="/gamemode spectator"||cmd=="/gamemode 3"){
-        gs.player.creative=false; gs.player.survival=false;
-        gs.player.adventure=false; gs.player.spectator=true; gs.player.flying=true;
-        pushChat(gs,"[Game] Spectator mode",0xFF00FF00u);
+        gs.player.creative=true; gs.player.flying=true;
+        pushChat(gs,"Spectator mode",0xFF88FFFFu);
     } else if(cmd.find("/tp ")==0){
         float tx,ty,tz;
         if(sscanf(cmd.c_str(),"/tp %f %f %f",&tx,&ty,&tz)==3){
-            gs.player.x=tx; gs.player.y=ty; gs.player.z=tz;
-            pushChat(gs,"[Game] Teleported!",0xFF00FF00u);
+            gs.player.pos={tx,ty,tz}; pushChat(gs,"Teleported!",0xFF00FF00u);
         }
     } else if(cmd.find("/give ")==0){
-        char iname[64]; int cnt=1;
-        sscanf(cmd.c_str(),"/give %63s %d",iname,&cnt);
+        char nm[64]; int cnt=1;
+        sscanf(cmd.c_str(),"/give %63s %d",nm,&cnt);
         for(int i=1;i<BLOCK_COUNT;i++)
-            if(strcmp(BLOCK_DEFS[i].name,iname)==0){
-                gs.player.inv.addItem((uint16_t)i,cnt);
-                pushChat(gs,"[Game] Item given!",0xFF00FF00u); break;
-            }
-    } else if(cmd=="/time day")   { gs.world->timeOfDay=6000;  pushChat(gs,"[Game] Time: Day",0xFFFFFF00u);   }
-    else if(cmd=="/time night")   { gs.world->timeOfDay=18000; pushChat(gs,"[Game] Time: Night",0xFF8888FFu); }
-    else if(cmd=="/weather rain") { gs.world->raining=true;    pushChat(gs,"[Game] Raining");                 }
-    else if(cmd=="/weather clear"){ gs.world->raining=false;   pushChat(gs,"[Game] Clear sky");               }
-    else if(cmd=="/kill")         { gs.player.health=0;        pushChat(gs,"[Game] You died!",0xFFFF0000u);   }
-    else if(cmd=="/fly"){
-        gs.player.flying=!gs.player.flying;
-        pushChat(gs,gs.player.flying?"[Game] Flying ON":"[Game] Flying OFF");
-    } else if(cmd.find("/msg ")==0){ pushChat(gs,cmd.substr(5),0xFF88FFFFu); }
-    else { pushChat(gs,"Unknown: "+cmd,0xFFFF4444u); }
+            if(!strcmp(BD(i).name,nm)){ gs.player.inv.add(i,cnt); pushChat(gs,"Given!",0xFF00FF00u); break; }
+    } else if(cmd=="/time day")   { gs.world->timeOfDay=6000;  pushChat(gs,"Day",0xFFFFFF00u); }
+    else if(cmd=="/time night")   { gs.world->timeOfDay=18000; pushChat(gs,"Night",0xFF8888FFu); }
+    else if(cmd=="/weather rain") { gs.world->raining=true;    pushChat(gs,"Rain",0xFF88AAFFu); }
+    else if(cmd=="/weather clear"){ gs.world->raining=false;   pushChat(gs,"Clear",0xFFFFFFAAu); }
+    else if(cmd=="/kill")         { gs.player.health=0;        pushChat(gs,"You died",0xFFFF0000u); }
+    else if(cmd=="/fly"){ gs.player.flying=!gs.player.flying; pushChat(gs,gs.player.flying?"Fly ON":"Fly OFF"); }
+    else if(cmd.find("/msg ")==0) { pushChat(gs,cmd.substr(5),0xFF88FFFFu); }
+    else pushChat(gs,"Unknown: "+cmd,0xFFFF4444u);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// JNI  ── FIX: @JvmStatic companion metodlar → jclass (static dispatch)
-// ─────────────────────────────────────────────────────────────────────────────
+static void scheduleChunkWork(GameState& gs){
+    int pcx=flr(gs.player.pos.x/CS),pcz=flr(gs.player.pos.z/CS);
+
+    for(int dx=-RD;dx<=RD;dx++) for(int dz=-RD;dz<=RD;dz++){
+        int cx=pcx+dx,cz=pcz+dz;
+        uint64_t k=World::key(cx,cz);
+        auto ch=gs.world->getChunk(cx,cz);
+        if(!ch){
+            ch=gs.world->getOrCreate(cx,cz);
+            std::lock_guard lk(gs.genMtx);
+            if(!gs.genInFlight.count(k)){
+                gs.genInFlight.insert(k);
+                gs.threadPool->enqueue([&gs,cx,cz,k]{
+                    auto c=gs.world->getOrCreate(cx,cz);
+                    if(!c->generated) gs.world->generateChunk(*c);
+                    std::lock_guard lk2(gs.genMtx);
+                    gs.genInFlight.erase(k);
+                    c->meshDirty=true;
+                });
+            }
+        }
+        if(ch&&ch->generated&&ch->meshDirty&&!ch->meshBuilding){
+            std::lock_guard lk(gs.meshMtx);
+            if(!gs.meshInFlight.count(k)){
+                gs.meshInFlight.insert(k);
+                ch->meshBuilding=true;
+                gs.threadPool->enqueue([&gs,cx,cz,k]{
+                    auto c=gs.world->getChunk(cx,cz);
+                    if(c) buildChunkMesh(*c,*gs.world);
+                    std::lock_guard lk2(gs.meshMtx);
+                    gs.meshInFlight.erase(k);
+                });
+            }
+        }
+    }
+
+    std::unique_lock lk(gs.world->chunkMtx);
+    std::vector<uint64_t> toRemove;
+    for(auto& [k,ch]:gs.world->chunks){
+        if(std::abs(ch->cx-pcx)>RD+2||std::abs(ch->cz-pcz)>RD+2) toRemove.push_back(k);
+    }
+    for(auto k:toRemove) gs.world->chunks.erase(k);
+}
+
+static void gameTick(GameState& gs,float dt){
+    gs.world->tick++;
+    gs.world->timeOfDay+=dt*20.f;
+    if(gs.world->timeOfDay>=24000.f) gs.world->timeOfDay-=24000.f;
+
+    if(gs.world->tick%2==0){
+        std::shared_lock lk(gs.world->chunkMtx);
+        std::vector<std::pair<Vec3i,uint8_t>> falls;
+        for(auto& [k,ch]:gs.world->chunks)
+            for(int x=0;x<CS;x++) for(int y=1;y<WH;y++) for(int z=0;z<CS;z++){
+                uint8_t b=ch->blocks[ch->idx(x,y,z)];
+                if(!BD(b).gravity) continue;
+                uint8_t below=ch->blocks[ch->idx(x,y-1,z)];
+                if(below==AIR||BD(below).fluid)
+                    falls.push_back({{ch->cx*CS+x,y,ch->cz*CS+z},b});
+            }
+        lk.unlock();
+        for(auto& [pos,b]:falls){ gs.world->setBlock(pos.x,pos.y,AIR,AIR); gs.world->setBlock(pos.x,pos.y-1,pos.z,b); }
+    }
+
+    if(gs.world->tick%24==0){
+        std::shared_lock lk(gs.world->chunkMtx);
+        std::vector<std::pair<Vec3i,uint8_t>> grow;
+        for(auto& [k,ch]:gs.world->chunks)
+            for(int t=0;t<4;t++){
+                int x=rand()%CS,y=rand()%WH,z=rand()%CS;
+                uint8_t b=ch->blocks[ch->idx(x,y,z)];
+                if(b>=WHEAT_0&&b<WHEAT_7&&rand()%3==0)
+                    grow.push_back({{ch->cx*CS+x,y,ch->cz*CS+z},(uint8_t)(b+1)});
+                if(b==GRASS&&y+1<WH&&ch->blocks[ch->idx(x,y+1,z)]!=AIR)
+                    grow.push_back({{ch->cx*CS+x,y,ch->cz*CS+z},DIRT});
+            }
+        lk.unlock();
+        for(auto& [pos,b]:grow) gs.world->setBlock(pos.x,pos.y,pos.z,b);
+    }
+}
+
 extern "C" {
 
 JNIEXPORT void JNICALL Java_com_omni_craft_Engine_nativeInit(JNIEnv*,jclass,jint w,jint h,jlong seed){
-    if(gState){ delete gState->world; delete gState; }
-    gState=new GameState();
-    gState->screenW=w; gState->screenH=h; gState->seed=(uint64_t)seed;
-    initRecipes();
-    gState->world=new World((uint64_t)seed);
-    gState->renderer.init(w,h);
-    int pcx=flr(gState->player.x/CS),pcz=flr(gState->player.z/CS);
-    for(int dx=-4;dx<=4;dx++) for(int dz=-4;dz<=4;dz++)
-        gState->world->getChunk(pcx+dx,pcz+dz,true);
-    int sx=flr(gState->player.x),sz=flr(gState->player.z);
-    for(int y=WH-1;y>=0;y--)
-        if(gState->world->getBlock(sx,y,sz)!=AIR){ gState->player.y=(float)y+1; break; }
-    gState->player.respawnX=sx; gState->player.respawnY=(int)gState->player.y; gState->player.respawnZ=sz;
-    gState->initialized=true;
-    LOGI("Init %dx%d seed=%llu",w,h,(unsigned long long)seed);
+    try{
+        if(gState){ delete gState; gState=nullptr; }
+        gState=new GameState();
+        gState->screenW=w; gState->screenH=h;
+        buildRecipes();
+        gState->world=std::make_unique<World>((uint64_t)seed);
+        gState->threadPool=std::make_unique<ThreadPool>(std::max(2,(int)std::thread::hardware_concurrency()));
+        gState->renderer.init(w,h);
+        for(int dx=-4;dx<=4;dx++) for(int dz=-4;dz<=4;dz++){
+            auto c=gState->world->getOrCreate(dx,dz);
+            gState->world->generateChunk(*c);
+        }
+        for(int y=WH-1;y>=0;y--)
+            if(gState->world->blockAt(0,y,0)!=AIR){ gState->player.pos.y=y+1.f; break; }
+        gState->player.respawn={0,(int)gState->player.pos.y,0};
+        gState->initialized=true;
+        LOGI("Init done %dx%d seed=%lld",w,h,(long long)seed);
+    } catch(std::exception& e){ LOGE("Init exception: %s",e.what()); }
 }
 
 JNIEXPORT void JNICALL Java_com_omni_craft_Engine_nativeResize(JNIEnv*,jclass,jint w,jint h){
-    if(!gState) return; gState->screenW=w; gState->screenH=h; glViewport(0,0,w,h);
+    if(!gState) return;
+    gState->screenW=w; gState->screenH=h;
+    gState->renderer.resize(w,h);
+}
+
+JNIEXPORT jboolean JNICALL Java_com_omni_craft_Engine_nativeIsInitialized(JNIEnv*,jclass){
+    return gState&&gState->initialized;
 }
 
 JNIEXPORT void JNICALL Java_com_omni_craft_Engine_nativeFrame(JNIEnv*,jclass,jfloat dt){
     if(!gState||!gState->initialized) return;
     GameState& gs=*gState;
-    float safe_dt=std::min((float)dt,0.05f);
+    float sdt=clampf(dt,0.f,.05f);
+    gs.time+=sdt;
 
-    float yaw=gs.player.cameraYaw*(3.14159f/180.0f);
-    float speed=gs.player.sprinting?SS:(gs.player.sneaking?SnS:WS);
-    float fwd=-gs.joystickY*speed, str=gs.joystickX*speed;
-    gs.player.vx+=(cosf(-yaw)*str+sinf(yaw)*fwd)*safe_dt*10.0f;
-    gs.player.vz+=(sinf(-yaw)*str-cosf(yaw)*fwd)*safe_dt*10.0f;
-    if(gs.player.flying||gs.player.spectator) gs.player.vy*=0.8f;
-    gs.player.cameraYaw  +=gs.cameraJoyX*gs.player.cameraSensitivity*2.0f;
-    gs.player.cameraPitch+=gs.cameraJoyY*gs.player.cameraSensitivity*2.0f;
-    gs.player.cameraPitch=clamp(gs.player.cameraPitch,-89.0f,89.0f);
-    gs.cameraJoyX=gs.cameraJoyY=0;
+    float yaw=gs.player.yaw*(3.14159f/180.f);
+    float spd=gs.player.sprinting?SPRINT_SPD:(gs.player.sneaking?SNEAK_SPD:WALK_SPD);
+    float fwd=-gs.joySY*spd,str=gs.joySX*spd;
+    gs.player.vel.x+=(cosf(-yaw)*str+sinf(yaw)*fwd)*sdt*10.f;
+    gs.player.vel.z+=(sinf(-yaw)*str-cosf(yaw)*fwd)*sdt*10.f;
 
-    gs.world->tick(gs.player,safe_dt);
+    gs.physics.step(gs.player,*gs.world,sdt);
+    gameTick(gs,sdt);
+    scheduleChunkWork(gs);
+    gs.renderer.updateParticles(sdt);
 
-    for(auto& m:gs.chatLog) m.timer-=safe_dt;
+    for(auto& m:gs.chatLog) m.timer-=sdt;
     gs.chatLog.erase(std::remove_if(gs.chatLog.begin(),gs.chatLog.end(),
-        [](const ChatMessage& m){return m.timer<=0;}),gs.chatLog.end());
+        [](const ChatMsg& m){ return m.timer<=0; }),gs.chatLog.end());
 
-    int pcx=flr(gs.player.x/CS),pcz=flr(gs.player.z/CS);
-    for(int dx=-RD;dx<=RD;dx++) for(int dz=-RD;dz<=RD;dz++)
-        gs.world->getChunk(pcx+dx,pcz+dz,true);
+    gs.renderer.frame(*gs.world,gs.player,gs.time);
 
-    gs.renderer.updateParticles(safe_dt);
-    gs.renderer.frame(*gs.world,gs.player,gs.screenW,gs.screenH);
+    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
 
-    // HUD
-    glDisable(GL_DEPTH_TEST); glEnable(GL_BLEND); glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
-    float cx=gs.screenW*0.5f,cy=gs.screenH*0.5f;
-    gs.renderer.addUIQuad(cx-16,cy-2,cx+16,cy+2,1,1,1,0.8f);
-    gs.renderer.addUIQuad(cx-2,cy-16,cx+2,cy+16,1,1,1,0.8f);
+    float cx2=gs.screenW*.5f,cy2=gs.screenH*.5f;
+    gs.renderer.addRect(cx2-18,cy2-2,cx2+18,cy2+2,1,1,1,.85f);
+    gs.renderer.addRect(cx2-2,cy2-18,cx2+2,cy2+18,1,1,1,.85f);
 
-    float hbW=gs.screenW*0.7f,hbH=hbW/9.0f*1.1f;
-    float hbX=(gs.screenW-hbW)*0.5f,hbY=gs.screenH-hbH-10;
-    gs.renderer.addUIQuad(hbX,hbY,hbX+hbW,hbY+hbH,0,0,0,0.6f);
-    for(int i=0;i<HB;i++){
-        float sx2=hbX+i*(hbW/HB),sw2=hbW/HB;
-        if(i==gs.player.selectedSlot) gs.renderer.addUIQuad(sx2,hbY,sx2+sw2,hbY+hbH,1,1,1,0.4f);
-        gs.renderer.addUIQuad(sx2+2,hbY+2,sx2+sw2-2,hbY+hbH-2,0.3f,0.3f,0.3f,0.5f);
+    float hbW=gs.screenW*.68f,hbH=hbW/9.f*1.1f;
+    float hbX=(gs.screenW-hbW)*.5f,hbY=gs.screenH-hbH-12.f;
+    gs.renderer.addRect(hbX-2,hbY-2,hbX+hbW+2,hbY+hbH+2,0,0,0,.7f);
+    for(int i=0;i<HOTBAR_SZ;i++){
+        float sx=hbX+i*(hbW/HOTBAR_SZ),sw=hbW/HOTBAR_SZ;
+        float sel=(i==gs.player.selSlot)?.4f:.0f;
+        gs.renderer.addRect(sx+1,hbY+1,sx+sw-1,hbY+hbH-1,.3f+sel,.3f+sel,.3f,.5f+sel*.3f);
     }
 
-    float barW=gs.screenW*0.35f,barH=14;
-    float barX=(gs.screenW-barW)*0.5f,barY=hbY-barH-4;
-    gs.renderer.addUIQuad(barX,barY,barX+barW,barY+barH,0.2f,0,0,0.7f);
-    gs.renderer.addUIQuad(barX,barY,barX+barW*(gs.player.health/gs.player.maxHealth),barY+barH,1.0f,0.15f,0.15f,0.9f);
-    float hgY=barY-barH-2;
-    gs.renderer.addUIQuad(barX,hgY,barX+barW,hgY+barH,0.2f,0.1f,0,0.7f);
-    gs.renderer.addUIQuad(barX,hgY,barX+barW*(gs.player.hunger/gs.player.maxHunger),hgY+barH,0.85f,0.55f,0.1f,0.9f);
+    float barW=gs.screenW*.36f,barH=13.f;
+    float barX=(gs.screenW-barW)*.5f,barY=hbY-barH-5.f;
+    gs.renderer.addRect(barX,barY,barX+barW,barY+barH,.15f,0,0,.75f);
+    gs.renderer.addRect(barX,barY,barX+barW*(gs.player.health/gs.player.maxHp),barY+barH,.95f,.1f,.1f,.9f);
+    float hgY=barY-barH-3.f;
+    gs.renderer.addRect(barX,hgY,barX+barW,hgY+barH,.2f,.1f,0,.75f);
+    gs.renderer.addRect(barX,hgY,barX+barW*(gs.player.hunger/gs.player.maxHunger),hgY+barH,.85f,.55f,.1f,.9f);
 
-    // Break progress güncelleme (nativeFrame'e entegre)
     if(gs.player.breaking){
-        float yaw2  =gs.player.cameraYaw  *(3.14159f/180.0f);
-        float pitch2=gs.player.cameraPitch*(3.14159f/180.0f);
-        float bdx=cosf(pitch2)*sinf(-yaw2),bdy=sinf(pitch2),bdz=cosf(pitch2)*cosf(-yaw2);
-        RaycastResult br=gs.world->raycast(gs.player.x,gs.player.y+gs.player.eyeHeight,gs.player.z,bdx,bdy,bdz,REACH);
-        if(!br.hit){ gs.player.breaking=false; gs.player.breakProgress=0; }
+        Vec3 dir=gs.player.lookDir();
+        auto hit=gs.world->raycast(gs.player.eyePos(),dir,REACH);
+        if(!hit.hit){ gs.player.breaking=false; gs.player.breakProg=0; }
         else{
-            if(br.block.x!=gs.player.breakTarget.x||br.block.y!=gs.player.breakTarget.y||br.block.z!=gs.player.breakTarget.z){
-                gs.player.breakTarget=br.block; gs.player.breakProgress=0;
-            }
-            uint8_t bb=gs.world->getBlock(br.block.x,br.block.y,br.block.z);
+            if(!(hit.block==gs.player.breakTarget)){ gs.player.breakTarget=hit.block; gs.player.breakProg=0; }
+            uint8_t bb=gs.world->blockAt(hit.block.x,hit.block.y,hit.block.z);
             if(bb!=BEDROCK){
-                float bspeed=1.5f;
-                ItemStack& btool=gs.player.inv.active();
-                if(btool.id>=ITEM_WOOD_PICKAXE&&btool.id<=ITEM_DIAMOND_PICKAXE)
-                    bspeed=3.0f+(btool.id-ITEM_WOOD_PICKAXE)*0.5f;
-                else if(btool.id>=ITEM_WOOD_AXE&&btool.id<=ITEM_DIAMOND_AXE)
-                    bspeed=2.5f+(btool.id-ITEM_WOOD_AXE)*0.4f;
-                gs.player.breakProgress+=safe_dt*bspeed/(BLOCK_DEFS[bb].hardness+0.001f);
-                if(gs.player.breakProgress>=1.0f){
-                    gs.renderer.spawnBreakParticles(br.block.x,br.block.y,br.block.z);
-                    gs.world->breakBlock(br.block.x,br.block.y,br.block.z,gs.player);
-                    gs.player.breakProgress=0; gs.player.breaking=false;
-                    if(!gs.player.creative) gs.player.foodExhaustion+=0.005f;
+                float spd2=1.5f;
+                auto& tool=gs.player.inv.active();
+                if(tool.id>=ITEM_IRON_PICKAXE&&tool.id<=ITEM_DIAMOND_PICKAXE) spd2=4.f;
+                gs.player.breakProg+=sdt*spd2/(BD(bb).hardness+.001f);
+                if(gs.player.breakProg>=1.f){
+                    gs.renderer.spawnParticles({(float)hit.block.x,(float)hit.block.y,(float)hit.block.z});
+                    uint8_t drop=BD(bb).dropId;
+                    if(drop) gs.player.inv.add(drop,1);
+                    gs.world->setBlock(hit.block.x,hit.block.y,hit.block.z,AIR);
+                    gs.player.breakProg=0; gs.player.breaking=false;
                 }
             }
         }
-        float bpx=(gs.screenW-150)*0.5f,bpy=cy-40;
-        gs.renderer.addUIQuad(bpx,bpy,bpx+150,bpy+8,0.1f,0.1f,0.1f,0.8f);
-        gs.renderer.addUIQuad(bpx,bpy,bpx+150*gs.player.breakProgress,bpy+8,0.8f,0.6f,0.1f,1.0f);
+        float bpX=(gs.screenW-160)*.5f,bpY=cy2-45;
+        gs.renderer.addRect(bpX,bpY,bpX+160,bpY+9,.1f,.1f,.1f,.8f);
+        gs.renderer.addRect(bpX,bpY,bpX+160*gs.player.breakProg,bpY+9,.85f,.6f,.1f,1.f);
     }
+
+    if(gs.player.dead){
+        gs.renderer.addRect(0,0,(float)gs.screenW,(float)gs.screenH,.6f,0,0,.4f);
+    }
+
     gs.renderer.flushUI();
     glEnable(GL_DEPTH_TEST);
 }
 
-// Instance JNI metodları (jobject)
 JNIEXPORT void JNICALL Java_com_omni_craft_Engine_nativeJoystick(JNIEnv*,jobject,jfloat x,jfloat y){
-    if(!gState) return; gState->joystickX=x; gState->joystickY=y;
+    if(!gState) return; gState->joySX=x; gState->joySY=y;
 }
 JNIEXPORT void JNICALL Java_com_omni_craft_Engine_nativeCameraInput(JNIEnv*,jobject,jfloat dx,jfloat dy){
-    if(!gState) return; gState->cameraJoyX=dx; gState->cameraJoyY=dy;
+    if(!gState) return;
+    gState->player.yaw+=dx; gState->player.pitch=clampf(gState->player.pitch+dy,-89.f,89.f);
 }
 JNIEXPORT void JNICALL Java_com_omni_craft_Engine_nativeTap(JNIEnv*,jobject,jint type){
     if(!gState) return;
     GameState& gs=*gState;
-    float yaw  =gs.player.cameraYaw  *(3.14159f/180.0f);
-    float pitch=gs.player.cameraPitch*(3.14159f/180.0f);
-    float dx=cosf(pitch)*sinf(-yaw),dy=sinf(pitch),dz=cosf(pitch)*cosf(-yaw);
-    RaycastResult r=gs.world->raycast(gs.player.x,gs.player.y+gs.player.eyeHeight,gs.player.z,dx,dy,dz,REACH);
-    if(type==0&&r.hit){
+    auto hit=gs.world->raycast(gs.player.eyePos(),gs.player.lookDir(),REACH);
+    if(type==0&&hit.hit){
         if(gs.player.creative){
-            gs.renderer.spawnBreakParticles(r.block.x,r.block.y,r.block.z);
-            gs.world->breakBlock(r.block.x,r.block.y,r.block.z,gs.player);
-        } else { gs.player.breaking=true; gs.player.breakTarget=r.block; }
-    } else if(type==1&&r.hit){
-        gs.world->placeBlock(r.block.x+r.face.x,r.block.y+r.face.y,r.block.z+r.face.z,gs.player);
+            gs.renderer.spawnParticles({(float)hit.block.x,(float)hit.block.y,(float)hit.block.z});
+            uint8_t drop=BD(gs.world->blockAt(hit.block.x,hit.block.y,hit.block.z)).dropId;
+            if(drop) gs.player.inv.add(drop,1);
+            gs.world->setBlock(hit.block.x,hit.block.y,hit.block.z,AIR);
+        } else { gs.player.breaking=true; gs.player.breakTarget=hit.block; gs.player.breakProg=0; }
+    } else if(type==1&&hit.hit){
+        ItemStack& held=gs.player.inv.slots[gs.player.selSlot];
+        if(!held.empty()&&held.id<BLOCK_COUNT){
+            int px=hit.block.x+hit.face.x,py=hit.block.y+hit.face.y,pz=hit.block.z+hit.face.z;
+            if(gs.world->blockAt(px,py,pz)==AIR){
+                gs.world->setBlock(px,py,pz,(uint8_t)held.id);
+                if(!gs.player.creative){ held.count--; if(!held.count) held=ItemStack(); }
+            }
+        }
     }
 }
 JNIEXPORT void JNICALL Java_com_omni_craft_Engine_nativeJump(JNIEnv*,jobject){
     if(!gState) return;
-    GameState& gs=*gState;
-    if(gs.player.onGround||gs.player.inWater) gs.player.vy=gs.player.inWater?5.0f:JF;
-    else if(gs.player.flying||gs.player.spectator) gs.player.vy=5.0f;
+    Player& p=gState->player;
+    if(p.ground||p.inWater) p.vel.y=p.inWater?5.f:JUMP_VEL;
+    else if(p.flying)       p.vel.y=6.f;
 }
 JNIEXPORT void JNICALL Java_com_omni_craft_Engine_nativeSneak(JNIEnv*,jobject,jboolean on){
-    if(!gState) return; gState->player.sneaking=(bool)on; gState->player.eyeHeight=on?1.5f:1.62f;
+    if(!gState) return; gState->player.sneaking=(bool)on; gState->player.eyeH=on?1.5f:1.62f;
 }
 JNIEXPORT void JNICALL Java_com_omni_craft_Engine_nativeSprint(JNIEnv*,jobject,jboolean on){
     if(!gState) return; gState->player.sprinting=(bool)on;
 }
 JNIEXPORT void JNICALL Java_com_omni_craft_Engine_nativeSelectSlot(JNIEnv*,jobject,jint slot){
-    if(!gState) return; gState->player.selectedSlot=slot%HB;
+    if(!gState) return; gState->player.selSlot=slot%HOTBAR_SZ;
 }
 JNIEXPORT void JNICALL Java_com_omni_craft_Engine_nativeSendChat(JNIEnv* env,jobject,jstring msg){
     if(!gState) return;
     const char* c=env->GetStringUTFChars(msg,nullptr);
     std::string s(c); env->ReleaseStringUTFChars(msg,c);
     if(s.empty()) return;
-    if(s[0]=='/') processChat(*gState,s); else pushChat(*gState,"<Player> "+s);
+    if(s[0]=='/') handleCommand(*gState,s); else pushChat(*gState,"<You> "+s);
 }
 JNIEXPORT jstring JNICALL Java_com_omni_craft_Engine_nativeGetChatLog(JNIEnv* env,jobject){
     if(!gState) return env->NewStringUTF("");
-    std::string r; for(auto& m:gState->chatLog) r+=m.text+"\n";
+    std::string r;
+    for(auto& m:gState->chatLog) r+=m.text+"\n";
     return env->NewStringUTF(r.c_str());
 }
-
 JNIEXPORT jstring JNICALL Java_com_omni_craft_Engine_nativeGetInventory(JNIEnv* env,jobject){
     if(!gState) return env->NewStringUTF("[]");
     std::string r="[";
-    for(int i=0;i<INV;i++){
-        const ItemStack& s=gState->player.inv.slots[i];
+    for(int i=0;i<INV_SIZE;i++){
+        auto& s=gState->player.inv.slots[i];
         if(i>0) r+=",";
         char buf[64]; snprintf(buf,sizeof(buf),"{\"id\":%d,\"count\":%d}",s.id,s.count);
         r+=buf;
     }
     r+="]"; return env->NewStringUTF(r.c_str());
 }
-JNIEXPORT void JNICALL Java_com_omni_craft_Engine_nativeSetSensitivity(JNIEnv*,jobject,jfloat sens){
-    if(!gState) return; gState->player.cameraSensitivity=clamp(sens,0.05f,2.0f);
+JNIEXPORT void JNICALL Java_com_omni_craft_Engine_nativeSetSensitivity(JNIEnv*,jobject,jfloat s){
+    if(!gState) return; gState->player.sens=clampf(s,.05f,3.f);
 }
 JNIEXPORT void JNICALL Java_com_omni_craft_Engine_nativeFlyUp(JNIEnv*,jobject,jboolean on){
-    if(!gState) return;
-    if(gState->player.flying||gState->player.spectator) gState->player.vy=(bool)on?6.0f:0.0f;
+    if(!gState) return; if(gState->player.flying||gState->player.creative) gState->player.vel.y=(bool)on?7.f:0.f;
 }
 JNIEXPORT void JNICALL Java_com_omni_craft_Engine_nativeFlyDown(JNIEnv*,jobject,jboolean on){
-    if(!gState) return;
-    if(gState->player.flying||gState->player.spectator) gState->player.vy=(bool)on?-6.0f:0.0f;
+    if(!gState) return; if(gState->player.flying||gState->player.creative) gState->player.vel.y=(bool)on?-7.f:0.f;
 }
 JNIEXPORT void JNICALL Java_com_omni_craft_Engine_nativeStartBreak(JNIEnv*,jobject){
-    if(!gState) return; gState->player.breaking=true; gState->player.breakProgress=0;
+    if(!gState) return; gState->player.breaking=true; gState->player.breakProg=0;
 }
 JNIEXPORT void JNICALL Java_com_omni_craft_Engine_nativeStopBreak(JNIEnv*,jobject){
-    if(!gState) return; gState->player.breaking=false; gState->player.breakProgress=0;
+    if(!gState) return; gState->player.breaking=false; gState->player.breakProg=0;
 }
-
 JNIEXPORT void JNICALL Java_com_omni_craft_Engine_nativeCraftItem(JNIEnv* env,jobject,jintArray grid){
     if(!gState) return;
     jint* arr=env->GetIntArrayElements(grid,nullptr);
-    ItemStack craftGrid[9];
-    for(int i=0;i<9;i++) craftGrid[i]=ItemStack((uint16_t)arr[i],1);
+    ItemStack g[9]; for(int i=0;i<9;i++) g[i]=ItemStack((uint16_t)arr[i],1);
     env->ReleaseIntArrayElements(grid,arr,JNI_ABORT);
-    uint16_t result=tryMatchRecipe(craftGrid);
-    if(result) gState->player.inv.addItem(result,1);
+    uint16_t out=matchRecipe(g);
+    if(out) gState->player.inv.add(out,1);
 }
 JNIEXPORT void JNICALL Java_com_omni_craft_Engine_nativeDestroy(JNIEnv*,jobject){
-    if(gState){ delete gState->world; delete gState; gState=nullptr; }
-}
-// FIX: @JvmStatic → jclass
-JNIEXPORT jboolean JNICALL Java_com_omni_craft_Engine_nativeIsInitialized(JNIEnv*,jclass){
-    return gState&&gState->initialized;
+    if(gState){ gState->initialized=false; delete gState; gState=nullptr; }
 }
 
 } // extern "C"

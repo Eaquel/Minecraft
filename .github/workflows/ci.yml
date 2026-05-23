@@ -1,24 +1,17 @@
-name: OmniCraft Android CI
+name: Omni_Craft Android CI
 
 on:
   push:
-    branches:
-      - main
-      - develop
+    branches: [main]
   pull_request:
-    branches:
-      - main
+    branches: [main]
 
 env:
-  GRADLE_VERSION: "9.5.0"
-  NDK_VERSION: "29.0.14206865"
-  NDK_RELEASE: "r29"
-  CMAKE_VERSION: "4.3.2"
-  JAVA_VERSION: "25"
-  KOTLIN_VERSION: "2.3.21"
-  COMPILE_SDK: "36"
+  GRADLE_VERSION:   "9.5.1"
+  NDK_VERSION:      "29.0.14206865"
+  CMAKE_VERSION:    "4.3.2"
+  JAVA_VERSION:     "25"
   ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
-  ANDROID_HOME: /usr/local/lib/android/sdk
 
 jobs:
   build:
@@ -31,131 +24,84 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Generate Gradle Wrapper
-        run: |
-          gradle wrapper --gradle-version ${{ env.GRADLE_VERSION }} --distribution-type bin
-          cp gradlew Minecraft/gradlew
-          cp gradlew.bat Minecraft/gradlew.bat
-          cp -r gradle Minecraft/gradle
-          chmod +x Minecraft/gradlew
-
-      - name: Set up JDK 25
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: ${{ env.JAVA_VERSION }}
           cache: gradle
-          cache-dependency-path: |
-            **/*.gradle.kts
-            gradle.properties
 
-      - name: Set up Android SDK
+      - name: Setup Android SDK
         uses: android-actions/setup-android@v4
 
-      - name: Accept Android SDK licenses
-        run: yes | sdkmanager --licenses
-
-      - name: Install Android SDK Platform 36
+      - name: Install NDK & CMake
         run: |
-          sdkmanager --install \
-            "platform-tools" \
-            "platforms;android-36" \
-            "build-tools;36.0.0"
+          yes | sdkmanager \
+            "cmake;${{ env.CMAKE_VERSION }}" \
+            "ndk;${{ env.NDK_VERSION }}"
+          echo "CMAKE_HOME=$ANDROID_SDK_ROOT/cmake/${{ env.CMAKE_VERSION }}" >> $GITHUB_ENV
+          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/${{ env.NDK_VERSION }}"  >> $GITHUB_ENV
 
-      - name: Download & Install CMake 4.3.2
-        run: |
-          set -e
-          CMAKE_TAR="cmake-${{ env.CMAKE_VERSION }}-linux-x86_64.tar.gz"
-          CMAKE_URL="https://github.com/Kitware/CMake/releases/download/v${{ env.CMAKE_VERSION }}/${CMAKE_TAR}"
-          curl -fsSL "$CMAKE_URL" -o "$CMAKE_TAR"
-          sudo tar -xzf "$CMAKE_TAR" -C /opt
-          rm "$CMAKE_TAR"
-          CMAKE_HOME="/opt/cmake-${{ env.CMAKE_VERSION }}-linux-x86_64"
-          CMAKE_BIN="$CMAKE_HOME/bin"
-          echo "$CMAKE_BIN" >> $GITHUB_PATH
-          echo "CMAKE_HOME=$CMAKE_HOME" >> $GITHUB_ENV
-          cmake --version
-
-      - name: Download & Install NDK 29
-        run: |
-          set -e
-          NDK_ZIP="android-ndk-${{ env.NDK_RELEASE }}-linux.zip"
-          NDK_URL="https://dl.google.com/android/repository/${NDK_ZIP}"
-          curl -fsSL "$NDK_URL" -o "$NDK_ZIP"
-          mkdir -p "$ANDROID_SDK_ROOT/ndk"
-          unzip -q "$NDK_ZIP" -d "$ANDROID_SDK_ROOT/ndk"
-          rm "$NDK_ZIP"
-          NDK_PATH=$(find "$ANDROID_SDK_ROOT/ndk" -maxdepth 2 -name source.properties \
-            -path "*/android-ndk-${{ env.NDK_RELEASE }}/*" -exec dirname {} \; | head -1)
-          if [ -z "$NDK_PATH" ]; then
-            echo "NDK not found!"
-            exit 1
-          fi
-          echo "ANDROID_NDK=$NDK_PATH" >> $GITHUB_ENV
-          echo "ANDROID_NDK_HOME=$NDK_PATH" >> $GITHUB_ENV
-          echo "NDK_HOME=$NDK_PATH" >> $GITHUB_ENV
-          echo "$NDK_PATH" >> $GITHUB_PATH
-
-      - name: Verify Tool Versions
-        run: |
-          echo "=== Java ==="
-          java --version
-          echo -e "\n=== SDKManager ==="
-          which sdkmanager
-          sdkmanager --version
-          echo -e "\n=== CMake ==="
-          cmake --version
-          echo -e "\n=== NDK ==="
-          cat "$ANDROID_NDK_HOME/source.properties"
-          echo -e "\n=== Gradle Wrapper ==="
-          Minecraft/gradlew --version || true
-
-      - name: Write local.properties
-        run: |
-          cat > local.properties << EOF
-          sdk.dir=$ANDROID_SDK_ROOT
-          cmake.dir=$CMAKE_HOME
-          EOF
-
-      - name: Cache NDK Build Output
+      - name: Cache Gradle packages
         uses: actions/cache@v4
         with:
-          path: Minecraft/.cxx
-          key: ${{ runner.os }}-cxx-ndk${{ env.NDK_VERSION }}-cmake${{ env.CMAKE_VERSION }}-${{ hashFiles('**/CMakeLists.txt', '**/*.cpp', '**/*.c', '**/*.h') }}
-          restore-keys: |
-            ${{ runner.os }}-cxx-ndk${{ env.NDK_VERSION }}-cmake${{ env.CMAKE_VERSION }}-
-            ${{ runner.os }}-cxx-ndk${{ env.NDK_VERSION }}-
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*','**/gradle-wrapper.properties') }}
+          restore-keys: gradle-${{ runner.os }}-
+
+      - name: Cache NDK build output
+        uses: actions/cache@v4
+        with:
+          path: Backrooms/.cxx
+          key: ndk-${{ runner.os }}-${{ env.NDK_VERSION }}-${{ hashFiles('**/CMakeLists.txt','**/Core.cpp') }}
+          restore-keys: ndk-${{ runner.os }}-${{ env.NDK_VERSION }}-
+
+      - name: Generate gradle.properties
+        run: |
+          cat <<EOF > gradle.properties
+          org.gradle.jvmargs=-Xmx6g -XX:+UseG1GC -XX:MaxMetaspaceSize=512m
+          org.gradle.parallel=true
+          org.gradle.caching=true
+          org.gradle.configuration-cache=true
+          android.useAndroidX=true
+          android.nonTransitiveRClass=true
+          sdk.dir=$ANDROID_SDK_ROOT
+          cmake.dir=$ANDROID_SDK_ROOT/cmake/${{ env.CMAKE_VERSION }}
+          ndk.dir=$ANDROID_SDK_ROOT/ndk/${{ env.NDK_VERSION }}
+          EOF
+
+      - name: Generate Gradle Wrapper
+        run: |
+          gradle wrapper \
+            --gradle-version ${{ env.GRADLE_VERSION }} \
+            --distribution-type bin
+          chmod +x gradlew
 
       - name: Build Release APK
         run: |
-          Minecraft/gradlew :Minecraft:assembleRelease \
+          ./gradlew :Backrooms:assembleRelease \
             --no-daemon \
             --configuration-cache \
-            -Dorg.gradle.jvmargs="-Xmx4g -XX:+UseG1GC -XX:MaxMetaspaceSize=512m" \
-            -Pandroid.ndkVersion="${{ env.NDK_VERSION }}" \
-            -Pandroid.cmakeVersion="${{ env.CMAKE_VERSION }}"
+            --build-cache \
+            --parallel
         env:
-          ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_HOME }}
-          CMAKE_HOME: ${{ env.CMAKE_HOME }}
-          SIGNING_KEY_STORE: ${{ secrets.SIGNING_KEY_STORE }}
-          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
-          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+          SIGNING_KEY_STORE:      ${{ secrets.SIGNING_KEY_STORE }}
+          SIGNING_KEY_ALIAS:      ${{ secrets.SIGNING_KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD:   ${{ secrets.SIGNING_KEY_PASSWORD }}
           SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_STORE_PASSWORD }}
 
       - name: Upload Release APK
         uses: actions/upload-artifact@v4
         with:
-          name: OmniCraft-release-${{ github.sha }}
-          path: Minecraft/build/outputs/apk/release/*.apk
-          retention-days: 30
+          name:            Omni_Craft-release-${{ github.sha }}
+          path:            Backrooms/build/outputs/apk/release/*.apk
+          retention-days:  30
 
-      - name: Lint
-        run: Minecraft/gradlew :Minecraft:lint --no-daemon
-        continue-on-error: true
-
-      - name: Upload Lint Report
-        if: always()
+      - name: Upload Native Debug Symbols
         uses: actions/upload-artifact@v4
         with:
-          name: lint-report-${{ github.sha }}
-          path: Minecraft/build/reports/lint-results*.html
+          name:            Omni_Craft-symbols-${{ github.sha }}
+          path:            Backrooms/build/outputs/native-debug-symbols/**
+          retention-days:  14
