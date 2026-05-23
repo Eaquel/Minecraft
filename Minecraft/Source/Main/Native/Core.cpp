@@ -289,7 +289,11 @@ public:
             }
         });
     }
-    ~ThreadPool(){ stopping=true; cv.notify_all(); for(auto& w:workers) w.join(); }
+    ~ThreadPool(){
+        { std::unique_lock lk(mtx); stopping=true; }
+        cv.notify_all();
+        for(auto& w:workers) if(w.joinable()) w.join();
+    }
     template<typename F>
     void enqueue(F&& f){ pending++;
         { std::lock_guard lk(mtx); tasks.emplace(std::forward<F>(f)); } cv.notify_one(); }
@@ -855,6 +859,7 @@ static float computeAO(World& world,int wx,int wy,int wz,int faceAxis,int faceDi
 }
 
 static void buildChunkMesh(Chunk& c,World& world){
+    if(!c.generated) return;
     std::vector<MeshVertex> opaque,trans;
     std::vector<uint32_t>   oIdx,tIdx;
 
@@ -1405,11 +1410,11 @@ static void scheduleChunkWork(GameState& gs){
               if(gs.genInFlight.count(k)) continue;
               gs.genInFlight.insert(k); }
             ch=gs.world->getOrCreate(cx,cz);
-            World* wptr=gs.world.get();
-            gs.threadPool->enqueue([wptr,cx,cz,k,&gs]{
-                auto c=wptr->getOrCreate(cx,cz);
-                if(!c->generated) wptr->generateChunk(*c);
-                c->meshDirty=true;
+            auto chCopy=ch;
+            std::shared_ptr<World> wshared(gs.world.get(),[](World*){});
+            gs.threadPool->enqueue([chCopy,wshared,k,&gs]{
+                if(!chCopy->generated) wshared->generateChunk(*chCopy);
+                chCopy->meshDirty=true;
                 std::lock_guard lk2(gs.genMtx);
                 gs.genInFlight.erase(k);
             });
@@ -1421,28 +1426,32 @@ static void scheduleChunkWork(GameState& gs){
               if(gs.meshInFlight.count(k)) continue;
               gs.meshInFlight.insert(k); }
             ch->meshBuilding=true;
-            World* wptr=gs.world.get();
-            gs.threadPool->enqueue([wptr,cx,cz,k,&gs]{
-                auto c=wptr->getChunk(cx,cz);
-                if(c&&c->generated) buildChunkMesh(*c,*wptr);
+            auto chCopy=ch;
+            std::shared_ptr<World> wshared(gs.world.get(),[](World*){});
+            gs.threadPool->enqueue([chCopy,wshared,k,&gs]{
+                buildChunkMesh(*chCopy,*wshared);
+                chCopy->meshBuilding=false;
                 std::lock_guard lk2(gs.meshMtx);
                 gs.meshInFlight.erase(k);
             });
         }
     }
 
+    if(gs.threadPool->pendingCount()>4) return;
+
     std::vector<uint64_t> toRemove;
     { std::shared_lock lk(gs.world->chunkMtx);
       for(auto& [k,ch]:gs.world->chunks)
-          if(std::abs(ch->cx-pcx)>RD+2||std::abs(ch->cz-pcz)>RD+2)
+          if(std::abs(ch->cx-pcx)>RD+3||std::abs(ch->cz-pcz)>RD+3)
               toRemove.push_back(k); }
     if(!toRemove.empty()){
         std::unique_lock lk(gs.world->chunkMtx);
         for(auto k:toRemove){
             auto it=gs.world->chunks.find(k);
-            if(it!=gs.world->chunks.end()&&
-               std::abs(it->second->cx-pcx)>RD+2&&
-               std::abs(it->second->cz-pcz)>RD+2)
+            if(it==gs.world->chunks.end()) continue;
+            if(it->second->meshBuilding) continue;
+            if(std::abs(it->second->cx-pcx)>RD+3&&
+               std::abs(it->second->cz-pcz)>RD+3)
                 gs.world->chunks.erase(it);
         }
     }
@@ -1691,7 +1700,11 @@ JNIEXPORT void JNICALL Java_com_omni_craft_Engine_nativeCraftItem(JNIEnv* env,jo
     if(out) gState->player.inv.add(out,1);
 }
 JNIEXPORT void JNICALL Java_com_omni_craft_Engine_nativeDestroy(JNIEnv*,jobject){
-    if(gState){ gState->initialized=false; delete gState; gState=nullptr; }
+    if(!gState) return;
+    gState->initialized=false;
+    gState->threadPool.reset();
+    delete gState;
+    gState=nullptr;
 }
 
 } // extern "C"
