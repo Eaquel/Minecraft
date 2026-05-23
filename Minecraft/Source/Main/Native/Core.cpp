@@ -46,10 +46,10 @@ static constexpr float SNEAK_SPD = 1.295f;
 static constexpr float REACH     = 4.8f;
 static constexpr int   INV_SIZE  = 36;
 static constexpr int   HOTBAR_SZ = 9;
-static constexpr int   OC_MAX_STACK = 64;
-static constexpr int   OC_ATLAS_DIM = 16;
-static constexpr float ATLAS_UV  = 1.0f / OC_ATLAS_DIM;
-static constexpr int   OC_MAX_LIGHTS = 64;
+static constexpr int   MAX_STACK = 64;
+static constexpr int   ATLAS_DIM = 16;
+static constexpr float ATLAS_UV  = 1.0f / ATLAS_DIM;
+static constexpr int   MAX_LIGHTS = 64;
 static constexpr int   SHADOW_SZ = 1024;
 
 enum BlockID : uint8_t {
@@ -316,10 +316,10 @@ struct Inventory {
     int selected=0;
     bool add(uint16_t id,int cnt){
         for(int i=0;i<INV_SIZE&&cnt>0;i++)
-            if(slots[i].id==id&&slots[i].count<OC_MAX_STACK){
-                int a=std::min(cnt,(int)(OC_MAX_STACK-slots[i].count)); slots[i].count+=a; cnt-=a; }
+            if(slots[i].id==id&&slots[i].count<MAX_STACK){
+                int a=std::min(cnt,(int)(MAX_STACK-slots[i].count)); slots[i].count+=a; cnt-=a; }
         for(int i=0;i<INV_SIZE&&cnt>0;i++)
-            if(slots[i].empty()){ int a=std::min(cnt,OC_MAX_STACK); slots[i]=ItemStack(id,a); cnt-=a; }
+            if(slots[i].empty()){ int a=std::min(cnt,MAX_STACK); slots[i]=ItemStack(id,a); cnt-=a; }
         return cnt==0;
     }
     ItemStack& active(){ return slots[selected%HOTBAR_SZ]; }
@@ -821,11 +821,11 @@ static GLuint linkProg(const char* vs,const char* fs){
 }
 
 static const int TILE=16;
-static const float TUV=1.f/OC_ATLAS_DIM;
+static const float TUV=1.f/ATLAS_DIM;
 
 static void tileUV(uint8_t tile,float& u0,float& v0){
-    int tx=tile%OC_ATLAS_DIM,ty=tile/OC_ATLAS_DIM;
-    u0=(float)tx/OC_ATLAS_DIM; v0=(float)ty/OC_ATLAS_DIM;
+    int tx=tile%ATLAS_DIM,ty=tile/ATLAS_DIM;
+    u0=(float)tx/ATLAS_DIM; v0=(float)ty/ATLAS_DIM;
 }
 
 struct MeshVertex {
@@ -951,7 +951,7 @@ static void uploadChunkMesh(Chunk& c){
 }
 
 static uint32_t generateAtlasTexture(){
-    const int TS=16,AS=TS*OC_ATLAS_DIM;
+    const int TS=16,AS=TS*ATLAS_DIM;
     std::vector<uint32_t> data(AS*AS,0xFF808080u);
 
     auto px=[&](int tx,int ty,int px2,int py2,uint32_t c){

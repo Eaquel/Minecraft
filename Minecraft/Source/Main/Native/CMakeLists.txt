@@ -8,7 +8,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -fvisibility=hidden -fvisibility-inlines-hidden")
 
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG -ffast-math -funroll-loops -fomit-frame-pointer -fvectorize -fslp-vectorize -fmerge-all-constants")
+    set(CMAKE_CXX_FLAGS_RELEASE
+        "-O3 -DNDEBUG -ffast-math -funroll-loops -fomit-frame-pointer -fvectorize -fslp-vectorize -fmerge-all-constants")
     set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
 else()
     set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g3 -DDEBUG -fno-omit-frame-pointer")
@@ -24,11 +25,11 @@ endif()
 
 add_library(omnicraft SHARED Core.cpp)
 
-find_library(LIB_ANDROID  android)
-find_library(LIB_LOG      log)
-find_library(LIB_GLES3    GLESv3)
-find_library(LIB_EGL      EGL)
-find_library(LIB_ZLIB     z)
+find_library(LIB_ANDROID android)
+find_library(LIB_LOG     log)
+find_library(LIB_GLES3   GLESv3)
+find_library(LIB_EGL     EGL)
+find_library(LIB_ZLIB    z)
 
 target_link_libraries(omnicraft
     PRIVATE
@@ -42,17 +43,6 @@ target_link_libraries(omnicraft
 )
 
 target_compile_definitions(omnicraft PRIVATE
-    CHUNK_SIZE=16
-    WORLD_HEIGHT=256
-    RENDER_DISTANCE=10
-    MESH_RENDER_DISTANCE=9
-    MAX_PARTICLES=1024
-    INVENTORY_SLOTS=36
-    HOTBAR_SLOTS=9
-    OC_MAX_STACK=64
-    OC_ATLAS_DIM=16
-    OMNICRAFT_VERSION_MAJOR=2
-    OMNICRAFT_VERSION_MINOR=0
     $<$<CONFIG:Release>:NDEBUG>
     $<$<CONFIG:Debug>:DEBUG>
 )
@@ -69,9 +59,9 @@ target_compile_options(omnicraft PRIVATE
 )
 
 set_target_properties(omnicraft PROPERTIES
-    CXX_STANDARD            26
-    CXX_STANDARD_REQUIRED   ON
-    CXX_EXTENSIONS          OFF
+    CXX_STANDARD          26
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS        OFF
     ANDROID_EXPORT_PACKAGE_SYMBOLS OFF
     POSITION_INDEPENDENT_CODE ON
 )
