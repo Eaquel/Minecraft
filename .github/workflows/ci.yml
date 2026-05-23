@@ -61,7 +61,7 @@ jobs:
       - name: Cache NDK build output
         uses: actions/cache@v4
         with:
-          path: Backrooms/.cxx
+          path: Minecraft/.cxx
           key: ndk-${{ runner.os }}-${{ env.NDK_VERSION }}-${{ hashFiles('**/CMakeLists.txt','**/Core.cpp') }}
           restore-keys: ndk-${{ runner.os }}-${{ env.NDK_VERSION }}-
 
@@ -89,7 +89,7 @@ jobs:
 
       - name: Build Release APK
         run: |
-          ./gradlew :Backrooms:assembleRelease \
+          ./gradlew :Minecraft:assembleRelease \
             --no-daemon \
             --configuration-cache \
             --build-cache \
@@ -104,12 +104,12 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name:           Omni_Craft-release-${{ github.sha }}
-          path:           Backrooms/build/outputs/apk/release/*.apk
+          path:           Minecraft/build/outputs/apk/release/*.apk
           retention-days: 30
 
       - name: Upload Native Debug Symbols
         uses: actions/upload-artifact@v4
         with:
           name:           Omni_Craft-symbols-${{ github.sha }}
-          path:           Backrooms/build/outputs/native-debug-symbols/**
+          path:           Minecraft/build/outputs/native-debug-symbols/**
           retention-days: 14
